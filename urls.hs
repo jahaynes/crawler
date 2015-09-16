@@ -6,6 +6,7 @@ module Urls (CanonicalUrl,
              canonicaliseByteString,
              canonicaliseString,
              isAcceptable,
+             contains,
              urlPlus) where
 
 import Data.ByteString.Char8    (ByteString, pack, unpack, isInfixOf)
@@ -50,3 +51,6 @@ isAcceptable (CanonicalUrl bs) = True
 
 urlPlus :: URI -> URI -> CanonicalUrl
 urlPlus a b = CanonicalUrl (pack . normalize . show . relativeTo b $ a)
+
+contains :: CanonicalUrl -> ByteString -> Bool
+contains (CanonicalUrl u) bs = bs `isInfixOf` u 

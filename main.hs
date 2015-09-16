@@ -10,12 +10,13 @@ import Settings
 import Control.Applicative ((<$>))
 import Control.Concurrent               (forkIO, threadDelay)
 import Control.Concurrent.STM.TBQueue
+import Control.Concurrent.STM.TQueue
 import Control.Concurrent.STM           (atomically)
 import Control.Monad                    (forever, when, unless)
 
 import qualified Data.ByteString.Char8 as C8
 import Data.Maybe                       (catMaybes, isJust)
-
+import GHC.Conc                         (STM)
 import Network.HTTP.Conduit             (newManager, tlsManagerSettings)
 
 import qualified STMContainers.Set as S
@@ -26,8 +27,9 @@ import System.Environment               (getArgs)
 type Crawled = ([CanonicalUrl], C8.ByteString)
 
 data CrawlerState = CrawlerState {
-    getUrlQueue :: TBQueue CanonicalUrl,  
-    getCrawledQueue :: TBQueue Crawled,
+    getUrlQueue :: TQueue CanonicalUrl,  
+    getParseQueue :: TQueue Crawled,
+    getStoreQueue :: TBQueue Crawled,
     getUrlsInProgress :: S.Set CanonicalUrl,
     getUrlsCompleted :: S.Set CanonicalUrl,
     getUrlsFailed :: M.Map CanonicalUrl String
@@ -35,12 +37,49 @@ data CrawlerState = CrawlerState {
 
 createCrawlerState :: IO CrawlerState
 createCrawlerState = do
-    urlQueue <- newTBQueueIO 512
-    crawledQueue <- newTBQueueIO 128
+    urlQueue <- newTQueueIO
+    parseQueue <- newTQueueIO
+    storeQueue <- newTBQueueIO 32
     urlsInProgress <- S.newIO
     urlsCompleted <- S.newIO
     urlsFailed <- M.newIO
-    return $ CrawlerState urlQueue crawledQueue urlsInProgress urlsCompleted urlsFailed
+    return $ CrawlerState urlQueue parseQueue storeQueue urlsInProgress urlsCompleted urlsFailed
+
+crawlNextUrl :: CrawlerState -> IO ()    
+crawlNextUrl crawlerState = newManager tlsManagerSettings >>= \man -> 
+    forever $ do
+
+        nextUrl <- atomically $ readTQueue (getUrlQueue crawlerState)
+
+        putStrLn $ "Grabbed: " ++ show nextUrl
+        (mBodyData, redirects) <- getWithRedirects man nextUrl
+
+        case mBodyData of
+            Nothing -> atomically $ failedDownload nextUrl
+            Just bodyData -> atomically $ successfulDownload nextUrl redirects bodyData
+            
+    where
+    failedDownload :: CanonicalUrl -> STM ()
+    failedDownload attemptedUrl = do
+        S.delete attemptedUrl (getUrlsInProgress crawlerState)
+        M.insert "Couldn't get data!" attemptedUrl (getUrlsFailed crawlerState)
+
+    successfulDownload :: CanonicalUrl -> [CanonicalUrl] -> C8.ByteString -> STM ()
+    successfulDownload attemptedUrl redirects bodyData = do
+        S.delete attemptedUrl (getUrlsInProgress crawlerState)
+        mapM_ (\u -> S.insert u (getUrlsCompleted crawlerState)) redirects
+        writeTQueue (getParseQueue crawlerState) (redirects, bodyData)
+        writeTBQueue (getStoreQueue crawlerState) (redirects, bodyData)
+
+parsePages :: CrawlerState -> IO ()
+parsePages crawlerState = forever $ do
+
+    (redirects, dat) <- atomically $ readTQueue (getParseQueue crawlerState)
+    let referenceUrl = head redirects 
+        rawHrefs = getRawHrefs referenceUrl dat
+        nextHrefs = catMaybes rawHrefs
+    when (length rawHrefs /= length nextHrefs) (putStrLn "Warning, not all Hrefs were good!")
+    mapM_ (processNextUrl crawlerState) nextHrefs
 
 processNextUrl :: CrawlerState -> CanonicalUrl -> IO ()
 processNextUrl crawlerState url =
@@ -49,54 +88,22 @@ processNextUrl crawlerState url =
             completed <- S.lookup url (getUrlsCompleted crawlerState)
             inProgress <- S.lookup url (getUrlsInProgress crawlerState)
             failed <- isJust <$> M.lookup url (getUrlsFailed crawlerState)
-            unless (completed || inProgress || failed) $
-                writeTBQueue (getUrlQueue crawlerState) url
+            unless (completed || inProgress || failed) $ do
+                S.insert url (getUrlsInProgress crawlerState)
+                writeTQueue (getUrlQueue crawlerState) url
 
-crawlNextUrl :: CrawlerState -> IO ()    
-crawlNextUrl crawlerState = newManager tlsManagerSettings >>= \man -> 
-    forever $ do
+storePages :: CrawlerState -> IO ()
+storePages crawlerState = forever $ do
+    (redirectChain, content) <- atomically $ readTBQueue (getStoreQueue crawlerState)
+    appendFile "stored.log" (show redirectChain ++ "\n")
 
-        nextUrl <- atomically $ do
-            nextUrl <- readTBQueue (getUrlQueue crawlerState)
-            S.insert nextUrl (getUrlsInProgress crawlerState)
-            return nextUrl
-
-        putStrLn $ "Grabbed: " ++ show nextUrl
-        (mBodyData, redirects) <- getWithRedirects man nextUrl
-
-        case mBodyData of
-            Nothing ->
-                atomically $ do
-                    S.delete nextUrl (getUrlsInProgress crawlerState)
-                    M.insert "Couldn't get data!" nextUrl (getUrlsFailed crawlerState)
-            Just bodyData ->
-                atomically $ do
-                    S.delete nextUrl (getUrlsInProgress crawlerState)
-                    mapM_ (\u -> S.insert u (getUrlsCompleted crawlerState)) redirects
-                    writeTBQueue (getCrawledQueue crawlerState) (redirects, bodyData)
-
-parsePages :: CrawlerState -> IO ()
-parsePages crawlerState = forever $ do
-    (redirects, dat) <- atomically $ readTBQueue (getCrawledQueue crawlerState)
-    let referenceUrl = head redirects 
-        rawHrefs = getRawHrefs referenceUrl dat
-        nextHrefs = catMaybes rawHrefs
-    when (length rawHrefs /= length nextHrefs) (putStrLn "Warning, not all Hrefs were good!")
-    mapM_ (processNextUrl crawlerState) nextHrefs
-
-drainQueue :: CrawlerState -> IO ()
-drainQueue crawlerState =
-    forever $ do
-        (urls, content) <- atomically $ readTBQueue (getCrawledQueue crawlerState)
-        putStrLn $ "Finished: " ++ show urls 
-        
 main :: IO ()
 main = do
 
     crawlerState <- createCrawlerState
     mapM_ (\_ -> forkIO $ crawlNextUrl crawlerState) threadsPerJob
     mapM_ (\_ -> forkIO $ parsePages crawlerState) threadsPerJob
-    _ <- forkIO $ drainQueue crawlerState
+    forkIO $ storePages crawlerState
 
     getArgs >>=
         mapM_ (\a ->
