@@ -6,6 +6,8 @@ import Fetch
 import Parse
 import Urls
 import Settings
+import Types
+import Output
 
 import Control.Applicative ((<$>))
 import Control.Concurrent               (forkIO, threadDelay)
@@ -23,17 +25,6 @@ import qualified STMContainers.Set as S
 import qualified STMContainers.Map as M
 
 import System.Environment               (getArgs)
-
-type Crawled = ([CanonicalUrl], C8.ByteString)
-
-data CrawlerState = CrawlerState {
-    getUrlQueue :: TQueue CanonicalUrl,  
-    getParseQueue :: TQueue Crawled,
-    getStoreQueue :: TBQueue Crawled,
-    getUrlsInProgress :: S.Set CanonicalUrl,
-    getUrlsCompleted :: S.Set CanonicalUrl,
-    getUrlsFailed :: M.Map CanonicalUrl String
-}
 
 createCrawlerState :: IO CrawlerState
 createCrawlerState = do
@@ -91,11 +82,6 @@ processNextUrl crawlerState url =
             unless (completed || inProgress || failed) $ do
                 S.insert url (getUrlsInProgress crawlerState)
                 writeTQueue (getUrlQueue crawlerState) url
-
-storePages :: CrawlerState -> IO ()
-storePages crawlerState = forever $ do
-    (redirectChain, content) <- atomically $ readTBQueue (getStoreQueue crawlerState)
-    appendFile "stored.log" (show redirectChain ++ "\n")
 
 main :: IO ()
 main = do

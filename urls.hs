@@ -9,24 +9,11 @@ module Urls (CanonicalUrl,
              contains,
              urlPlus) where
 
+import Types
+
 import Data.ByteString.Char8    (ByteString, pack, unpack, isInfixOf)
-import Data.Char                (toLower)
 import Network.URI              (URI, parseAbsoluteURI, normalizeCase, relativeTo, normalizeEscape, normalizePathSegments)
 import Network.HTTP.Client      (Request, getUri)
-import qualified Data.ByteString.Char8  as C8
-
-import Data.Hashable
-
-newtype CanonicalUrl = CanonicalUrl ByteString
-
-instance Eq CanonicalUrl where
-    (CanonicalUrl a) == (CanonicalUrl b) = a == b
-
-instance Hashable CanonicalUrl where
-    hashWithSalt salt (CanonicalUrl bs) = hashWithSalt salt bs
-
-instance Show CanonicalUrl where
-    show (CanonicalUrl bs) = unpack bs
 
 canonicaliseRequest :: Request -> Maybe CanonicalUrl
 canonicaliseRequest = canonicaliseNetworkUri . getUri
