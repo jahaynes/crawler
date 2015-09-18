@@ -21,10 +21,6 @@ data CrawlerState = CrawlerState {
     getUrlsFailed :: M.Map CanonicalUrl String
 }
 
-data Health = Health {
-    getLastPingTime :: M.Map ThreadId UTCTime
-}
-
 newtype CanonicalUrl = CanonicalUrl ByteString
 
 instance Eq CanonicalUrl where

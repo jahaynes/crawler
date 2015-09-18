@@ -21,17 +21,19 @@ getRawHrefs onUrl bs =
 
     where
     derelativise :: ByteString -> Maybe CanonicalUrl
-    derelativise bsUrl =
+    derelativise bsUrl = do
         let url = unpack . trim $ bsUrl
-        in    
-        if isURI url
-            then canonicaliseByteString bsUrl
-            else do
-                let mOnUrl = parseAbsoluteURI (show onUrl)
-                    mUrl = parseRelativeReference url
-                case (mOnUrl, mUrl) of
-                    (Just ou, Just u) -> Just $ ou `urlPlus` u                      
-                    x -> error $ "Derelativise ERROR " ++ show (onUrl, url) ++ " " ++ show x
+        
+        if "mailto:" `C8.isPrefixOf` bsUrl
+            then Nothing
+            else if isURI url
+                then canonicaliseByteString bsUrl
+                else do
+                    let mOnUrl = parseAbsoluteURI (show onUrl)
+                        mUrl = parseRelativeReference url
+                    case (mOnUrl, mUrl) of
+                        (Just ou, Just u) -> Just $ ou `urlPlus` u                      
+                        x -> error $ "Derelativise ERROR " ++ show (onUrl, url) ++ " " ++ show x
 
         where
         trim = C8.reverse . C8.dropWhile isSpace . C8.reverse . C8.dropWhile isSpace

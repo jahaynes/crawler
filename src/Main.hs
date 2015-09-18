@@ -11,7 +11,7 @@ import Output
 import Health
 
 import Control.Applicative ((<$>))
-import Control.Concurrent               (forkIO, threadDelay)
+import Control.Concurrent               (threadDelay)
 import Control.Concurrent.STM.TBQueue
 import Control.Concurrent.STM.TQueue
 import Control.Concurrent.STM           (atomically)
@@ -43,7 +43,6 @@ crawlNextUrl crawlerState = newManager tlsManagerSettings >>= \man ->
 
         nextUrl <- atomically $ readTQueue (getUrlQueue crawlerState)
 
-        putStrLn $ "Grabbed: " ++ show nextUrl
         (mBodyData, redirects) <- getWithRedirects man nextUrl
 
         case mBodyData of
@@ -88,9 +87,14 @@ main :: IO ()
 main = do
 
     crawlerState <- createCrawlerState
-    mapM_ (\_ -> forkIO $ crawlNextUrl crawlerState) threadsPerJob
-    mapM_ (\_ -> forkIO $ parsePages crawlerState) threadsPerJob
-    forkIO $ storePages crawlerState
+
+    initialiseHealth >>= \health -> do
+
+        mapM_ (\n -> forkHealth health ("crawler_" ++ show n) $ crawlNextUrl crawlerState) threadsPerJob
+        
+        mapM_ (\n -> forkHealth health ("parser_" ++ show n) $ parsePages crawlerState) threadsPerJob
+        
+        forkHealth health "storage" $ storePages crawlerState
 
     getArgs >>=
         mapM_ (\a ->
