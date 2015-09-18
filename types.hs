@@ -5,7 +5,8 @@ import Control.Concurrent.STM.TQueue    (TQueue)
 
 import Data.ByteString.Char8 
 import Data.Hashable
-
+import Data.Time    (UTCTime)
+import GHC.Conc     (ThreadId)
 import qualified STMContainers.Set as S
 import qualified STMContainers.Map as M
 
@@ -18,6 +19,10 @@ data CrawlerState = CrawlerState {
     getUrlsInProgress :: S.Set CanonicalUrl,
     getUrlsCompleted :: S.Set CanonicalUrl,
     getUrlsFailed :: M.Map CanonicalUrl String
+}
+
+data Health = Health {
+    getLastPingTime :: M.Map ThreadId UTCTime
 }
 
 newtype CanonicalUrl = CanonicalUrl ByteString
