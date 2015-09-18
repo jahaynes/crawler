@@ -8,6 +8,7 @@ import Urls
 import Settings
 import Types
 import Output
+import Health
 
 import Control.Applicative ((<$>))
 import Control.Concurrent               (forkIO, threadDelay)
