@@ -6,7 +6,7 @@ import GHC.Conc                             (STM, ThreadId, threadStatus)
 import Control.Concurrent.STM               (atomically)
 import qualified STMContainers.Map as M
 import Control.Concurrent                   (forkIO, threadDelay)
-import Control.Monad                        (forever, when, unless)
+import Control.Monad                        (forever)
 import qualified ListT as L
 
 data Health = Health {
