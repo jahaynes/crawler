@@ -34,7 +34,6 @@ monitor health = forever $ do
     
     mapM_ (\(n,s) -> putStrLn $ n ++ ": " ++ show s) ns
     
-    print "Bleh"
     threadDelay 1000000
 
 forkHealth :: Health -> String -> IO () -> IO ()

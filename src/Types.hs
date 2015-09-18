@@ -14,6 +14,7 @@ data CrawlerState = CrawlerState {
     getUrlQueue :: TQueue CanonicalUrl,  
     getParseQueue :: TQueue Crawled,
     getStoreQueue :: TBQueue Crawled,
+    getLogQueue :: TBQueue Loggable,
     getUrlsInProgress :: S.Set CanonicalUrl,
     getUrlsCompleted :: S.Set CanonicalUrl,
     getUrlsFailed :: M.Map CanonicalUrl String
@@ -29,3 +30,6 @@ instance Hashable CanonicalUrl where
 
 instance Show CanonicalUrl where
     show (CanonicalUrl bs) = unpack bs
+
+data Loggable = LoggableWarning CanonicalUrl ByteString
+              | LoggableError CanonicalUrl ByteString

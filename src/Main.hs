@@ -8,6 +8,7 @@ import Urls
 import Settings
 import Types
 import Output
+import Errors
 import Health
 
 import Control.Applicative ((<$>))
@@ -18,7 +19,8 @@ import Control.Concurrent.STM           (atomically)
 import Control.Monad                    (forever, when, unless)
 
 import qualified Data.ByteString.Char8 as C8
-import Data.Maybe                       (catMaybes, isJust)
+import Data.Either                      (partitionEithers)
+import Data.Maybe                       (isJust)
 import GHC.Conc                         (STM)
 import Network.HTTP.Conduit             (newManager, tlsManagerSettings)
 
@@ -32,10 +34,11 @@ createCrawlerState = do
     urlQueue <- newTQueueIO
     parseQueue <- newTQueueIO
     storeQueue <- newTBQueueIO 32
+    loggingQueue <- newTBQueueIO 128
     urlsInProgress <- S.newIO
     urlsCompleted <- S.newIO
     urlsFailed <- M.newIO
-    return $ CrawlerState urlQueue parseQueue storeQueue urlsInProgress urlsCompleted urlsFailed
+    return $ CrawlerState urlQueue parseQueue storeQueue loggingQueue urlsInProgress urlsCompleted urlsFailed
 
 crawlNextUrl :: CrawlerState -> IO ()    
 crawlNextUrl crawlerState = newManager tlsManagerSettings >>= \man -> 
@@ -67,9 +70,8 @@ parsePages crawlerState = forever $ do
 
     (redirects, dat) <- atomically $ readTQueue (getParseQueue crawlerState)
     let referenceUrl = head redirects 
-        rawHrefs = getRawHrefs referenceUrl dat
-        nextHrefs = catMaybes rawHrefs
-    when (length rawHrefs /= length nextHrefs) (putStrLn "Warning, not all Hrefs were good!")
+        (hrefErrors, nextHrefs) = partitionEithers . getRawHrefs referenceUrl $ dat
+    mapM_ (atomically . writeTBQueue (getLogQueue crawlerState)) hrefErrors
     mapM_ (processNextUrl crawlerState) nextHrefs
 
 processNextUrl :: CrawlerState -> CanonicalUrl -> IO ()
@@ -95,6 +97,8 @@ main = do
         mapM_ (\n -> forkHealth health ("parser_" ++ show n) $ parsePages crawlerState) threadsPerJob
         
         forkHealth health "storage" $ storePages crawlerState
+
+        forkHealth health "logging" $ logErrors crawlerState
 
     getArgs >>=
         mapM_ (\a ->
