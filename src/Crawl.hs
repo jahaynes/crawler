@@ -4,17 +4,15 @@ import Fetch
 import Urls
 import Types
 
-import Control.Applicative ((<$>))
+import Control.Applicative              ((<$>))
 import Control.Concurrent.STM.TBQueue
 import Control.Concurrent.STM.TQueue
 import Control.Concurrent.STM           (atomically)
 import Control.Monad                    (forever, when, unless)
-
-import qualified Data.ByteString.Char8 as C8
+import Data.ByteString                  (ByteString)
 import Data.Maybe                       (isJust)
 import GHC.Conc                         (STM)
 import Network.HTTP.Conduit             (newManager, tlsManagerSettings)
-
 import qualified STMContainers.Set as S
 import qualified STMContainers.Map as M
 
@@ -36,7 +34,7 @@ crawlNextUrl crawlerState = newManager tlsManagerSettings >>= \man ->
         S.delete attemptedUrl (getUrlsInProgress crawlerState)
         M.insert "Couldn't get data!" attemptedUrl (getUrlsFailed crawlerState)
 
-    successfulDownload :: CanonicalUrl -> [CanonicalUrl] -> C8.ByteString -> STM ()
+    successfulDownload :: CanonicalUrl -> [CanonicalUrl] -> ByteString -> STM ()
     successfulDownload attemptedUrl redirects bodyData = do
         S.delete attemptedUrl (getUrlsInProgress crawlerState)
         mapM_ (\u -> S.insert u (getUrlsCompleted crawlerState)) redirects

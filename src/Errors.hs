@@ -1,19 +1,20 @@
 module Errors where
 
 import Types
-import qualified Data.ByteString.Char8  as C8
+
 import Control.Concurrent.STM           (atomically)
 import Control.Monad                    (forever)
 import Control.Concurrent.STM.TBQueue   (readTBQueue)
+import Data.ByteString.Char8            (ByteString, unpack)
 
 instance Show Loggable where
     show (LoggableWarning url message) = showError url message
     show (LoggableError url message) = showError url message
 
-showError :: CanonicalUrl -> C8.ByteString -> String
+showError :: CanonicalUrl -> ByteString -> String
 showError url message = "While crawling: " ++ show url ++ "\n"
                     ++ " found the following issue: " ++ "\n"
-                    ++ C8.unpack message ++ "\n"
+                    ++ unpack message ++ "\n"
 
 logErrors :: CrawlerState -> IO ()
 logErrors crawlerState = forever $ do

@@ -1,11 +1,11 @@
 module Workers where
 
-import GHC.Conc                             (STM, ThreadId, threadStatus)
-import Control.Concurrent.STM               (atomically)
-import qualified STMContainers.Map as M
 import Control.Concurrent                   (forkIO, threadDelay)
+import Control.Concurrent.STM               (atomically)
 import Control.Monad                        (forever)
-import qualified ListT as L
+import GHC.Conc                             (STM, ThreadId, threadStatus)
+import qualified ListT              as L
+import qualified STMContainers.Map  as M
 
 data Workers = Workers {
     getActiveThreads :: M.Map ThreadId String
