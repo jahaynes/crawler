@@ -12,9 +12,9 @@ import Errors
 import Workers
 
 import Control.Concurrent               (threadDelay)
-import Control.Concurrent.STM.TBQueue
-import Control.Concurrent.STM.TQueue
-import Control.Monad                    (forever)
+import Control.Concurrent.STM           (atomically)
+import Control.Concurrent.STM.TBQueue   (newTBQueueIO)
+import Control.Concurrent.STM.TQueue    (newTQueueIO, isEmptyTQueue)
 
 import qualified STMContainers.Set as S
 import qualified STMContainers.Map as M
@@ -41,8 +41,8 @@ main = do
 
     setNumCrawlers crawlerState workers numStartCrawlers
 
-    mapM_ (\n -> forkWorker workers ("parser_" ++ show n) $ parsePages crawlerState) threadsPerJob
-    
+    setNumParsers crawlerState workers numStartParsers
+
     forkWorker workers "storage" $ storePages crawlerState
 
     forkWorker workers "logging" $ logErrors crawlerState
@@ -52,8 +52,20 @@ main = do
             case canonicaliseString a of
                 Just x -> processNextUrl crawlerState x
                 Nothing -> putStrLn $ "Could not parse URL: " ++ a)
-                         
-    forever $ do
-        threadDelay 1000000
+
+    go crawlerState False
+    where
+    go            _ True = return ()
+    go crawlerState False = do
+
+        finished <- atomically $ do
+            a <- isEmptyTQueue . getUrlQueue $ crawlerState
+            b <- isEmptyTQueue . getParseQueue $ crawlerState
+            c <- S.null . getUrlsInProgress $ crawlerState
+            return $ a && b && c
+
         putStrLn "."
+        threadDelay $ 3000000
+
+        go crawlerState finished
 

@@ -2,9 +2,11 @@
 
 module Parse where
 
-import Crawl
+import Crawl                    (processNextUrl)
+import Shared
 import Types
 import Urls
+import Workers
 
 import Data.Char                (isSpace)
 import Data.ByteString.Char8    (ByteString, unpack)
@@ -12,20 +14,51 @@ import qualified Data.ByteString.Char8  as C8
 import Network.URI              (isURI, parseAbsoluteURI, parseRelativeReference)
 import Text.HTML.TagSoup        (Tag (TagOpen), parseTags, isTagOpenName, canonicalizeTags)
 
+import Control.Applicative              ((<$>), (<*>))
+import Control.Concurrent               (ThreadId, myThreadId)
 import Control.Concurrent.STM.TBQueue
 import Control.Concurrent.STM.TQueue
-import Control.Concurrent.STM           (atomically)
-import Control.Monad                    (forever)
+import Control.Concurrent.STM           (STM, atomically)
+import Control.Monad                    (replicateM_)
 import Data.Either                      (partitionEithers)
+import qualified STMContainers.Set as S
 
-parsePages :: CrawlerState -> IO ()
-parsePages crawlerState = forever $ do
+setNumParsers :: CrawlerState -> Workers -> Int -> IO ()
+setNumParsers crawlerState workers desiredNum = do
 
-    (redirects, dat) <- atomically $ readTQueue (getParseQueue crawlerState)
-    let referenceUrl = head redirects 
-        (hrefErrors, nextHrefs) = partitionEithers . getRawHrefs referenceUrl $ dat
-    mapM_ (atomically . writeTBQueue (getLogQueue crawlerState)) hrefErrors
-    mapM_ (processNextUrl crawlerState) nextHrefs
+    threadsToAdd <- atomically $ do
+        currentNumParsers <- getActiveParserCount
+        case desiredNum - currentNumParsers of
+            0 -> return 0
+            threadDelta -> do
+                if threadDelta > 0
+                    then return threadDelta
+                    else do
+                        threadsToStop <- takeSet (-threadDelta) (getParserThreads workers)
+                        mapM_ (\t -> S.insert t (getParserThreadsToStop workers)) threadsToStop
+                        return 0
+    replicateM_ threadsToAdd addParser
+
+    where
+    addParser :: IO ()
+    addParser = forkIO_ $ do
+        threadId <- myThreadId
+        atomically $ S.insert threadId (getParserThreads workers)
+        parsePages workers crawlerState threadId
+
+    getActiveParserCount :: STM Int
+    getActiveParserCount = (-) <$> sizeOfSet (getParserThreads workers) <*> sizeOfSet (getParserThreadsToStop workers)
+
+parsePages :: Workers -> CrawlerState -> ThreadId -> IO ()
+parsePages workers crawlerState threadId =
+
+    whileActive threadId (getParserThreads workers) (getParserThreadsToStop workers) $ do
+
+        (redirects, dat) <- atomically $ readTQueue (getParseQueue crawlerState)
+        let referenceUrl = head redirects 
+            (hrefErrors, nextHrefs) = partitionEithers . getRawHrefs referenceUrl $ dat
+        mapM_ (atomically . writeTBQueue (getLogQueue crawlerState)) hrefErrors
+        mapM_ (processNextUrl crawlerState) nextHrefs
 
 getRawHrefs :: CanonicalUrl -> ByteString -> [Either Loggable CanonicalUrl]
 getRawHrefs onUrl bs =

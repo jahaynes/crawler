@@ -1,9 +1,9 @@
 module Workers where
 
-import Control.Concurrent                   (forkIO, threadDelay)
-import Control.Concurrent.STM               (atomically)
+import Control.Concurrent                   (ThreadId, forkIO, threadDelay)
+import Control.Concurrent.STM               (STM, atomically)
 import Control.Monad                        (forever)
-import GHC.Conc                             (STM, ThreadId, threadStatus)
+import GHC.Conc                             (threadStatus)
 import qualified ListT              as L
 import qualified STMContainers.Set  as S
 import qualified STMContainers.Map  as M
@@ -11,6 +11,10 @@ import qualified STMContainers.Map  as M
 data Workers = Workers {
     getCrawlerThreads :: S.Set ThreadId,
     getCrawlerThreadsToStop :: S.Set ThreadId,
+
+    getParserThreads :: S.Set ThreadId,
+    getParserThreadsToStop :: S.Set ThreadId,
+
     getActiveThreads :: M.Map ThreadId String
 }
 
@@ -19,10 +23,18 @@ initialiseWorkers = do
 
     crawlerThreads <- S.newIO
     crawlerThreadsToStop <- S.newIO 
+
+    parserThreads <- S.newIO
+    parserThreadsToStop <- S.newIO 
+
     activeThreads <- M.newIO
 
     let workers = Workers { getCrawlerThreads = crawlerThreads,
                             getCrawlerThreadsToStop = crawlerThreadsToStop,
+
+                            getParserThreads = parserThreads,
+                            getParserThreadsToStop = parserThreadsToStop,
+
                             getActiveThreads = activeThreads }
     forkWorker workers "monitor" $ monitor workers
     return workers

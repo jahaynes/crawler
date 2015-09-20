@@ -3,22 +3,21 @@ module Crawl where
 import Fetch
 import Urls
 import Workers
+import Shared
+import Settings
 import Types
 
 import Control.Applicative              ((<$>), (<*>))
-import Control.Concurrent               (forkIO)
+import Control.Concurrent               (ThreadId, myThreadId)
 import Control.Concurrent.STM.TBQueue
 import Control.Concurrent.STM.TQueue
-import Control.Concurrent.STM           (atomically)
+import Control.Concurrent.STM           (STM, atomically)
 import Control.Monad                    (when, unless, replicateM_)
 import Data.ByteString                  (ByteString)
 import Data.Maybe                       (isJust)
-import GHC.Conc                         (STM, myThreadId, ThreadId)
-import qualified ListT             as L
 import Network.HTTP.Conduit             (newManager, tlsManagerSettings)
 import qualified STMContainers.Set as S
 import qualified STMContainers.Map as M
-
 
 setNumCrawlers :: CrawlerState -> Workers -> Int -> IO ()
 setNumCrawlers crawlerState workers desiredNum = do
@@ -46,19 +45,12 @@ setNumCrawlers crawlerState workers desiredNum = do
     getActiveCrawlerCount :: STM Int
     getActiveCrawlerCount = (-) <$> sizeOfSet (getCrawlerThreads workers) <*> sizeOfSet (getCrawlerThreadsToStop workers)
 
-        where
-        sizeOfSet :: S.Set a -> STM Int
-        sizeOfSet = L.fold (\a _ -> return (a + 1)) 0 . S.stream
-
-    takeSet :: Int -> S.Set a -> STM [a]
-    takeSet n = L.toList . L.take n . S.stream
-
 crawlUrls :: Workers -> CrawlerState -> ThreadId -> IO ()
 crawlUrls workers crawlerState threadId = do
 
     man <- newManager tlsManagerSettings
 
-    whileActive $ do
+    whileActive threadId (getCrawlerThreads workers) (getCrawlerThreadsToStop workers) $ do
 
         nextUrl <- atomically $ readTQueue (getUrlQueue crawlerState)
 
@@ -69,18 +61,6 @@ crawlUrls workers crawlerState threadId = do
             Just bodyData -> atomically $ successfulDownload nextUrl redirects bodyData
 
     where
-    whileActive :: IO () -> IO ()
-    whileActive a = go
-        where
-        go = do
-            toStop <- atomically $ do
-                toStop <- S.lookup threadId (getCrawlerThreadsToStop workers)
-                when toStop $ do
-                    S.delete threadId (getCrawlerThreadsToStop workers)
-                    S.delete threadId (getCrawlerThreads workers)
-                return toStop
-            unless toStop $ a >> go
-
     failedDownload :: CanonicalUrl -> STM ()
     failedDownload attemptedUrl = do
         S.delete attemptedUrl (getUrlsInProgress crawlerState)
@@ -103,8 +83,3 @@ processNextUrl crawlerState url =
             unless (completed || inProgress || failed) $ do
                 S.insert url (getUrlsInProgress crawlerState)
                 writeTQueue (getUrlQueue crawlerState) url
-
-forkIO_ :: IO () -> IO ()
-forkIO_ a = do
-    _ <- forkIO a
-    return ()
