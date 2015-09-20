@@ -2,15 +2,30 @@
 
 module Parse where
 
-import Urls
-import Errors
+import Crawl
 import Types
+import Urls
 
 import Data.Char                (isSpace)
 import Data.ByteString.Char8    (ByteString, unpack)
 import qualified Data.ByteString.Char8  as C8
 import Network.URI              (isURI, parseAbsoluteURI, parseRelativeReference)
 import Text.HTML.TagSoup        (Tag (TagOpen), parseTags, isTagOpenName, canonicalizeTags)
+
+import Control.Concurrent.STM.TBQueue
+import Control.Concurrent.STM.TQueue
+import Control.Concurrent.STM           (atomically)
+import Control.Monad                    (forever)
+import Data.Either                      (partitionEithers)
+
+parsePages :: CrawlerState -> IO ()
+parsePages crawlerState = forever $ do
+
+    (redirects, dat) <- atomically $ readTQueue (getParseQueue crawlerState)
+    let referenceUrl = head redirects 
+        (hrefErrors, nextHrefs) = partitionEithers . getRawHrefs referenceUrl $ dat
+    mapM_ (atomically . writeTBQueue (getLogQueue crawlerState)) hrefErrors
+    mapM_ (processNextUrl crawlerState) nextHrefs
 
 getRawHrefs :: CanonicalUrl -> ByteString -> [Either Loggable CanonicalUrl]
 getRawHrefs onUrl bs =

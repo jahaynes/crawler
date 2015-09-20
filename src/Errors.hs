@@ -10,6 +10,7 @@ instance Show Loggable where
     show (LoggableWarning url message) = showError url message
     show (LoggableError url message) = showError url message
 
+showError :: CanonicalUrl -> C8.ByteString -> String
 showError url message = "While crawling: " ++ show url ++ "\n"
                     ++ " found the following issue: " ++ "\n"
                     ++ C8.unpack message ++ "\n"
