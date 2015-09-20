@@ -9,7 +9,7 @@ import Settings
 import Types
 import Output
 import Errors
-import Health
+import Workers
 
 import Control.Applicative ((<$>))
 import Control.Concurrent               (threadDelay)

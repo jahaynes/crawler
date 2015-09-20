@@ -1,6 +1,4 @@
-module Health where
-
---import Types
+module Workers where
 
 import GHC.Conc                             (STM, ThreadId, threadStatus)
 import Control.Concurrent.STM               (atomically)
@@ -9,24 +7,24 @@ import Control.Concurrent                   (forkIO, threadDelay)
 import Control.Monad                        (forever)
 import qualified ListT as L
 
-data Health = Health {
+data Workers = Workers {
     getActiveThreads :: M.Map ThreadId String
 }
 
-initialiseHealth :: IO Health
+initialiseHealth :: IO Workers
 initialiseHealth = do
     m <- M.newIO
-    let health = Health {getActiveThreads = m}
-    forkHealth health "monitor" $ monitor health
-    return health
+    let workers = Workers {getActiveThreads = m}
+    forkHealth workers "monitor" $ monitor workers
+    return workers
 
-subscribe :: Health -> String -> ThreadId -> STM ()
-subscribe health threadName threadId = M.insert threadName threadId (getActiveThreads health)
+subscribe :: Workers -> String -> ThreadId -> STM ()
+subscribe workers threadName threadId = M.insert threadName threadId (getActiveThreads workers)
 
-monitor :: Health -> IO ()
-monitor health = forever $ do
+monitor :: Workers -> IO ()
+monitor workers = forever $ do
     
-    ls <- atomically . L.toList . M.stream . getActiveThreads $ health
+    ls <- atomically . L.toList . M.stream . getActiveThreads $ workers
     
     stati <- mapM threadStatus (map fst ls)
     
@@ -36,7 +34,7 @@ monitor health = forever $ do
     
     threadDelay 1000000
 
-forkHealth :: Health -> String -> IO () -> IO ()
-forkHealth health threadName a = do
+forkHealth :: Workers -> String -> IO () -> IO ()
+forkHealth workers threadName a = do
     threadId <- forkIO a
-    atomically $ subscribe health threadName threadId    
+    atomically $ subscribe workers threadName threadId    
