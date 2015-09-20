@@ -5,13 +5,13 @@ module Urls (CanonicalUrl,
              canonicaliseNetworkUri,
              canonicaliseByteString,
              canonicaliseString,
-             isAcceptable,
              contains,
+             startsWith,
              urlPlus) where
 
 import Types
 
-import Data.ByteString.Char8    (ByteString, pack, unpack, isInfixOf)
+import Data.ByteString.Char8    (ByteString, pack, unpack, isInfixOf, isPrefixOf)
 import Network.URI              (URI, parseAbsoluteURI, normalizeCase, relativeTo, normalizeEscape, normalizePathSegments)
 import Network.HTTP.Client      (Request, getUri)
 
@@ -33,11 +33,11 @@ canonicaliseString str =
 normalize :: String -> String
 normalize = normalizeCase . normalizeEscape . normalizePathSegments
 
-isAcceptable :: CanonicalUrl -> Bool
-isAcceptable (CanonicalUrl bs) = True
-
 urlPlus :: URI -> URI -> CanonicalUrl
 urlPlus a b = CanonicalUrl (pack . normalize . show . relativeTo b $ a)
 
 contains :: CanonicalUrl -> ByteString -> Bool
-contains (CanonicalUrl u) bs = bs `isInfixOf` u 
+contains (CanonicalUrl u) bs = bs `isInfixOf` u
+
+startsWith :: CanonicalUrl -> ByteString -> Bool
+startsWith (CanonicalUrl u) bs = bs `isPrefixOf` u 
