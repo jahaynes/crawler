@@ -5,17 +5,26 @@ import Control.Concurrent.STM               (atomically)
 import Control.Monad                        (forever)
 import GHC.Conc                             (STM, ThreadId, threadStatus)
 import qualified ListT              as L
+import qualified STMContainers.Set  as S
 import qualified STMContainers.Map  as M
 
 data Workers = Workers {
+    getCrawlerThreads :: S.Set ThreadId,
+    getCrawlerThreadsToStop :: S.Set ThreadId,
     getActiveThreads :: M.Map ThreadId String
 }
 
-initialiseHealth :: IO Workers
-initialiseHealth = do
-    m <- M.newIO
-    let workers = Workers {getActiveThreads = m}
-    forkHealth workers "monitor" $ monitor workers
+initialiseWorkers :: IO Workers
+initialiseWorkers = do
+
+    crawlerThreads <- S.newIO
+    crawlerThreadsToStop <- S.newIO 
+    activeThreads <- M.newIO
+
+    let workers = Workers { getCrawlerThreads = crawlerThreads,
+                            getCrawlerThreadsToStop = crawlerThreadsToStop,
+                            getActiveThreads = activeThreads }
+    forkWorker workers "monitor" $ monitor workers
     return workers
 
 subscribe :: Workers -> String -> ThreadId -> STM ()
@@ -24,7 +33,7 @@ subscribe workers threadName threadId = M.insert threadName threadId (getActiveT
 monitor :: Workers -> IO ()
 monitor workers = forever $ do
     
-    ls <- atomically . L.toList . M.stream . getActiveThreads $ workers
+    ls <- atomically $ mapAsList (getActiveThreads workers)
     
     stati <- mapM threadStatus (map fst ls)
     
@@ -34,7 +43,11 @@ monitor workers = forever $ do
     
     threadDelay 1000000
 
-forkHealth :: Workers -> String -> IO () -> IO ()
-forkHealth workers threadName a = do
+    where
+    mapAsList :: M.Map a b -> STM [(a,b)]
+    mapAsList = L.toList . M.stream
+
+forkWorker :: Workers -> String -> IO () -> IO ()
+forkWorker workers threadName a = do
     threadId <- forkIO a
     atomically $ subscribe workers threadName threadId    

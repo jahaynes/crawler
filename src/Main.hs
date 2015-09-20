@@ -37,15 +37,15 @@ main = do
 
     crawlerState <- createCrawlerState
 
-    initialiseHealth >>= \health -> do
+    workers <- initialiseWorkers
 
-        mapM_ (\n -> forkHealth health ("crawler_" ++ show n) $ crawlNextUrl crawlerState) threadsPerJob
-        
-        mapM_ (\n -> forkHealth health ("parser_" ++ show n) $ parsePages crawlerState) threadsPerJob
-        
-        forkHealth health "storage" $ storePages crawlerState
+    setNumCrawlers crawlerState workers numStartCrawlers
 
-        forkHealth health "logging" $ logErrors crawlerState
+    mapM_ (\n -> forkWorker workers ("parser_" ++ show n) $ parsePages crawlerState) threadsPerJob
+    
+    forkWorker workers "storage" $ storePages crawlerState
+
+    forkWorker workers "logging" $ logErrors crawlerState
 
     getArgs >>=
         mapM_ (\a ->
