@@ -33,3 +33,7 @@ readQueue (BoundedCountedQueue sz bq) = TV.modifyTVar' sz (\x -> x-1) >> BQ.read
 writeQueue :: CountedQueue a -> a -> STM ()
 writeQueue (CountedQueue sz q) val = Q.writeTQueue q val >> TV.modifyTVar' sz (+1)
 writeQueue (BoundedCountedQueue sz bq) val = BQ.writeTBQueue bq val >> TV.modifyTVar' sz (+1)
+
+size :: CountedQueue a -> STM Int
+size (CountedQueue sz _) = TV.readTVar sz
+size (BoundedCountedQueue sz _) = TV.readTVar sz

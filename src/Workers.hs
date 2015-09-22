@@ -1,5 +1,9 @@
 module Workers where
 
+import CountedQueue
+import Errors
+import Types
+
 import Control.Concurrent                   (ThreadId, forkIO, threadDelay)
 import Control.Concurrent.STM               (STM, atomically)
 import Control.Monad                        (forever)
@@ -18,8 +22,8 @@ data Workers = Workers {
     getActiveThreads :: M.Map ThreadId String
 }
 
-initialiseWorkers :: IO Workers
-initialiseWorkers = do
+initialiseWorkers :: CrawlerState -> IO Workers
+initialiseWorkers crawlerState = do
 
     crawlerThreads <- S.newIO
     crawlerThreadsToStop <- S.newIO 
@@ -36,14 +40,14 @@ initialiseWorkers = do
                             getParserThreadsToStop = parserThreadsToStop,
 
                             getActiveThreads = activeThreads }
-    forkWorker workers "monitor" $ monitor workers
+    forkWorker workers "monitor" $ monitor crawlerState workers
     return workers
 
 subscribe :: Workers -> String -> ThreadId -> STM ()
 subscribe workers threadName threadId = M.insert threadName threadId (getActiveThreads workers)
 
-monitor :: Workers -> IO ()
-monitor workers = forever $ do
+monitor :: CrawlerState -> Workers -> IO ()
+monitor crawlerState workers = forever $ do
     
     ls <- atomically $ mapAsList (getActiveThreads workers)
     
