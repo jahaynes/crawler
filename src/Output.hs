@@ -5,9 +5,9 @@ import Types
 import Control.Concurrent.STM           (atomically)
 import Control.Monad                    (forever)
 
-import Control.Concurrent.STM.TBQueue   (readTBQueue)
+import CountedQueue                     (readQueue)
 
 storePages :: CrawlerState -> IO ()
 storePages crawlerState = forever $ do
-    (redirectChain, content) <- atomically $ readTBQueue (getStoreQueue crawlerState)
+    (redirectChain, content) <- atomically $ readQueue (getStoreQueue crawlerState)
     appendFile "stored.log" (show redirectChain ++ "\n")

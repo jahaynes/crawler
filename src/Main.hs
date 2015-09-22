@@ -2,6 +2,7 @@
 
 module Main where
 
+import CountedQueue
 import Crawl
 import Parse
 import Urls
@@ -13,8 +14,6 @@ import Workers
 
 import Control.Concurrent               (threadDelay)
 import Control.Concurrent.STM           (atomically)
-import Control.Concurrent.STM.TBQueue   (newTBQueueIO)
-import Control.Concurrent.STM.TQueue    (newTQueueIO, isEmptyTQueue)
 
 import qualified STMContainers.Set as S
 import qualified STMContainers.Map as M
@@ -23,10 +22,10 @@ import System.Environment               (getArgs)
 
 createCrawlerState :: IO CrawlerState
 createCrawlerState = do
-    urlQueue <- newTQueueIO
-    parseQueue <- newTQueueIO
-    storeQueue <- newTBQueueIO 32
-    loggingQueue <- newTBQueueIO 128
+    urlQueue <- newQueueIO Unbounded
+    parseQueue <- newQueueIO Unbounded
+    storeQueue <- newQueueIO (Bounded 32)
+    loggingQueue <- newQueueIO (Bounded 128)
     urlsInProgress <- S.newIO
     urlsCompleted <- S.newIO
     urlsFailed <- M.newIO
@@ -59,8 +58,8 @@ main = do
     go crawlerState False = do
 
         finished <- atomically $ do
-            a <- isEmptyTQueue . getUrlQueue $ crawlerState
-            b <- isEmptyTQueue . getParseQueue $ crawlerState
+            a <- isEmpty . getUrlQueue $ crawlerState
+            b <- isEmpty . getParseQueue $ crawlerState
             c <- S.null . getUrlsInProgress $ crawlerState
             return $ a && b && c
 

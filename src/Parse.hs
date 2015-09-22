@@ -2,6 +2,7 @@
 
 module Parse where
 
+import CountedQueue
 import Crawl                    (processNextUrl)
 import Shared
 import Types
@@ -16,8 +17,6 @@ import Text.HTML.TagSoup        (Tag (TagOpen), parseTags, isTagOpenName, canoni
 
 import Control.Applicative              ((<$>), (<*>))
 import Control.Concurrent               (ThreadId, myThreadId)
-import Control.Concurrent.STM.TBQueue
-import Control.Concurrent.STM.TQueue
 import Control.Concurrent.STM           (STM, atomically)
 import Control.Monad                    (replicateM_)
 import Data.Either                      (partitionEithers)
@@ -54,10 +53,10 @@ parsePages workers crawlerState threadId =
 
     whileActive threadId (getParserThreads workers) (getParserThreadsToStop workers) $ do
 
-        (redirects, dat) <- atomically $ readTQueue (getParseQueue crawlerState)
+        (redirects, dat) <- atomically $ readQueue (getParseQueue crawlerState)
         let referenceUrl = head redirects 
             (hrefErrors, nextHrefs) = partitionEithers . getRawHrefs referenceUrl $ dat
-        mapM_ (atomically . writeTBQueue (getLogQueue crawlerState)) hrefErrors
+        mapM_ (atomically . writeQueue (getLogQueue crawlerState)) hrefErrors
         mapM_ (processNextUrl crawlerState) nextHrefs
 
 getRawHrefs :: CanonicalUrl -> ByteString -> [Either Loggable CanonicalUrl]

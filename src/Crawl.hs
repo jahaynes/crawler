@@ -1,5 +1,6 @@
 module Crawl where
 
+import CountedQueue
 import Fetch
 import Urls
 import Workers
@@ -9,8 +10,6 @@ import Types
 
 import Control.Applicative              ((<$>), (<*>))
 import Control.Concurrent               (ThreadId, myThreadId)
-import Control.Concurrent.STM.TBQueue
-import Control.Concurrent.STM.TQueue
 import Control.Concurrent.STM           (STM, atomically)
 import Control.Monad                    (when, unless, replicateM_)
 import Data.ByteString                  (ByteString)
@@ -52,7 +51,7 @@ crawlUrls workers crawlerState threadId = do
 
     whileActive threadId (getCrawlerThreads workers) (getCrawlerThreadsToStop workers) $ do
 
-        nextUrl <- atomically $ readTQueue (getUrlQueue crawlerState)
+        nextUrl <- atomically $ readQueue (getUrlQueue crawlerState)
 
         (mBodyData, redirects) <- getWithRedirects man nextUrl
 
@@ -70,8 +69,8 @@ crawlUrls workers crawlerState threadId = do
     successfulDownload attemptedUrl redirects bodyData = do
         S.delete attemptedUrl (getUrlsInProgress crawlerState)
         mapM_ (\u -> S.insert u (getUrlsCompleted crawlerState)) redirects
-        writeTQueue (getParseQueue crawlerState) (redirects, bodyData)
-        writeTBQueue (getStoreQueue crawlerState) (redirects, bodyData)
+        writeQueue (getParseQueue crawlerState) (redirects, bodyData)
+        writeQueue (getStoreQueue crawlerState) (redirects, bodyData)
 
 processNextUrl :: CrawlerState -> CanonicalUrl -> IO ()
 processNextUrl crawlerState url =
@@ -82,4 +81,4 @@ processNextUrl crawlerState url =
             failed <- isJust <$> M.lookup url (getUrlsFailed crawlerState)
             unless (completed || inProgress || failed) $ do
                 S.insert url (getUrlsInProgress crawlerState)
-                writeTQueue (getUrlQueue crawlerState) url
+                writeQueue (getUrlQueue crawlerState) url
