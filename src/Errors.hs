@@ -4,7 +4,7 @@ import Types
 
 import Control.Concurrent.STM           (atomically)
 import Control.Monad                    (forever)
-import Control.Concurrent.STM.TBQueue   (readTBQueue)
+import CountedQueue                     (readQueue)
 import Data.ByteString.Char8            (ByteString, unpack)
 
 instance Show Loggable where
@@ -18,5 +18,5 @@ showError url message = "While crawling: " ++ show url ++ "\n"
 
 logErrors :: CrawlerState -> IO ()
 logErrors crawlerState = forever $ do
-    nextError <- atomically $ readTBQueue (getLogQueue crawlerState)
+    nextError <- atomically $ readQueue (getLogQueue crawlerState)
     appendFile "errors.log" (show nextError ++ "\n")

@@ -1,7 +1,6 @@
 module Types where
 
-import Control.Concurrent.STM.TBQueue   (TBQueue)
-import Control.Concurrent.STM.TQueue    (TQueue)
+import CountedQueue
 
 import Data.ByteString.Char8 
 import Data.Hashable
@@ -11,10 +10,10 @@ import qualified STMContainers.Map as M
 type Crawled = ([CanonicalUrl], ByteString)
 
 data CrawlerState = CrawlerState {
-    getUrlQueue :: TQueue CanonicalUrl,  
-    getParseQueue :: TQueue Crawled,
-    getStoreQueue :: TBQueue Crawled,
-    getLogQueue :: TBQueue Loggable,
+    getUrlQueue :: CountedQueue CanonicalUrl,  
+    getParseQueue :: CountedQueue Crawled,
+    getStoreQueue :: CountedQueue Crawled,
+    getLogQueue :: CountedQueue Loggable,
     getUrlsInProgress :: S.Set CanonicalUrl,
     getUrlsCompleted :: S.Set CanonicalUrl,
     getUrlsFailed :: M.Map CanonicalUrl String
