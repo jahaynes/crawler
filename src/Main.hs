@@ -2,6 +2,7 @@
 
 module Main where
 
+import Communication
 import CountedQueue
 import Crawl
 import Parse
@@ -31,6 +32,17 @@ createCrawlerState = do
     urlsFailed <- M.newIO
     return $ CrawlerState urlQueue parseQueue storeQueue loggingQueue urlsInProgress urlsCompleted urlsFailed
 
+commandHandler :: CrawlerState -> Command -> IO ()
+commandHandler crawlerState (RemoveUrl url) = print $ "Received remove url" ++ show url
+commandHandler crawlerState (AddUrl url) = do
+    print $ "Received add url" ++ show url
+    canonicaliseAndAdd crawlerState url 
+
+canonicaliseAndAdd crawlerState a =
+    case canonicaliseByteString a of
+                Just x -> processNextUrl crawlerState x
+                Nothing -> putStrLn $ "Could not parse URL: " ++ show a
+
 main :: IO ()
 main = do
 
@@ -46,12 +58,9 @@ main = do
 
     forkWorker workers "logging" $ logErrors crawlerState
 
-    getArgs >>=
-        mapM_ (\a ->
-            case canonicaliseString a of
-                Just x -> processNextUrl crawlerState x
-                Nothing -> putStrLn $ "Could not parse URL: " ++ a)
+    forkWorker workers "commandler" $ onCommand (commandHandler crawlerState)
 
+    --getArgs >>= mapM_ (canonicaliseAndAdd crawlerState)
     go crawlerState False
     where
     go            _ True = return ()
@@ -66,5 +75,5 @@ main = do
         putStrLn "."
         threadDelay $ 3000000
 
-        go crawlerState finished
+        go crawlerState False
 
