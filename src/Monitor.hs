@@ -25,9 +25,9 @@ main =
     where
     fromTemplate :: Html -> ActionT IO a
     fromTemplate = html . toStrict . renderHtml
-        
+
 addUrl url = do
-    withClient $ \c -> send (AddUrl (C8.pack url)) c
+    sendAndGetReply $ CommandMessage (AddUrl (C8.pack url))
 
 mainPage :: Markup        
 mainPage = [shamlet|

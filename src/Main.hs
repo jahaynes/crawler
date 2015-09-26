@@ -19,8 +19,6 @@ import Control.Concurrent.STM           (atomically)
 import qualified STMContainers.Set as S
 import qualified STMContainers.Map as M
 
-import System.Environment               (getArgs)
-
 createCrawlerState :: IO CrawlerState
 createCrawlerState = do
     urlQueue <- newQueueIO Unbounded
@@ -32,16 +30,23 @@ createCrawlerState = do
     urlsFailed <- M.newIO
     return $ CrawlerState urlQueue parseQueue storeQueue loggingQueue urlsInProgress urlsCompleted urlsFailed
 
-commandHandler :: CrawlerState -> Command -> IO ()
-commandHandler crawlerState (RemoveUrl url) = print $ "Received remove url" ++ show url
-commandHandler crawlerState (AddUrl url) = do
-    print $ "Received add url" ++ show url
-    canonicaliseAndAdd crawlerState url 
+messageHandler :: CrawlerState -> Message -> IO Message
+messageHandler crawlerState (CommandMessage c) = handleCommand c
+    where
+    handleCommand (AddUrl url) = do
+        print url
+        canonicaliseAndAdd crawlerState url
+        return Confirmation
+
+messageHandler crawlerState (QuestionMessage q) = handleQuestion q >>= return . AnswerMessage
+    where
+    handleQuestion GetNumCrawlers = do
+        return $ NumCrawlers 3
 
 canonicaliseAndAdd crawlerState a =
     case canonicaliseByteString a of
-                Just x -> processNextUrl crawlerState x
-                Nothing -> putStrLn $ "Could not parse URL: " ++ show a
+        Just x -> processNextUrl crawlerState x
+        Nothing -> putStrLn $ "Could not parse URL: " ++ show a
 
 main :: IO ()
 main = do
@@ -58,9 +63,8 @@ main = do
 
     forkWorker workers "logging" $ logErrors crawlerState
 
-    forkWorker workers "commandler" $ onCommand (commandHandler crawlerState)
+    forkWorker workers "commandler" $ receiveMessagesWith (messageHandler crawlerState)
 
-    --getArgs >>= mapM_ (canonicaliseAndAdd crawlerState)
     go crawlerState False
     where
     go            _ True = return ()

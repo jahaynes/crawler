@@ -3,15 +3,18 @@
 module Communication where
 
 import Data.Conduit
-import Control.Concurrent                   (forkIO, threadDelay)
 import Control.Monad.Trans.Resource         (ResourceT, runResourceT)
 import Control.Monad.IO.Class               (liftIO)
 import Data.Conduit.Network
 import Data.Serialize
 import GHC.Generics                         (Generic)
-import Data.ByteString
+import Data.ByteString                      (ByteString)
 
-import Data.ByteString.Char8 as C8
+data Message = CommandMessage Command
+             | QuestionMessage Question
+             | AnswerMessage Answer
+             | Confirmation
+               deriving (Generic, Show)
 
 data Command = AddUrl ByteString
              | RemoveUrl ByteString 
@@ -20,25 +23,45 @@ data Command = AddUrl ByteString
              | Idle 
                deriving (Generic, Show)
 
-instance Serialize Command
-    
-withClient :: (AppData -> ResourceT IO ()) -> IO ()
-withClient a =
-    runTCPClient (clientSettings 1040 "127.0.0.1") $ \ad -> do
-        runResourceT $ a ad
-    
+data Question = GetNumCrawlers
+                deriving (Generic, Show)
 
-    
-onCommand :: (Command -> IO ()) -> IO ()
-onCommand f =
+data Answer = NumCrawlers Int
+              deriving (Generic, Show)
+
+instance Serialize Message
+instance Serialize Command
+instance Serialize Question
+instance Serialize Answer
+
+sendAndGetReply :: Message -> IO ()
+sendAndGetReply msg = do
+    runTCPClient (clientSettings 1040 "127.0.0.1") $ \ad -> do
+        runResourceT $
+            appSource ad $$ process $= appSink ad
+    where
+    process = do
+        yield (encode msg)
+        a <- await
+        case a of
+            Nothing -> liftIO $ putStrLn "No reply"
+            Just x ->
+                case decode x :: Either String Message of
+                    Left e -> liftIO $ print e
+                    Right v -> liftIO $ print v
+
+receiveMessagesWith :: (Message -> IO Message) -> IO ()
+receiveMessagesWith f =
     runTCPServer (serverSettings 1040 "0.0.0.0") $ \ad ->
         runResourceT $
-            appSource ad $$
-                awaitForever $ \a -> do
-                    case decode a of
-                        Left str -> error $ show (a, str)
-                        Right c -> liftIO $ f c
+            appSource ad $$ process $= appSink ad
+    where
+    process =
+        awaitForever $ \a ->
+            case decode a of
+                Left str -> error $ show (a, str)
+                Right c -> do
+                    r <- liftIO $ f c
+                    yield . encode $ r
 
-send :: Command -> AppData -> ResourceT IO ()
-send command appData = yield (encode command) $$ appSink appData
     
