@@ -2,6 +2,7 @@
 
 module Main where
 
+import Communication
 import CountedQueue
 import Crawl
 import Parse
@@ -18,8 +19,6 @@ import Control.Concurrent.STM           (atomically)
 import qualified STMContainers.Set as S
 import qualified STMContainers.Map as M
 
-import System.Environment               (getArgs)
-
 createCrawlerState :: IO CrawlerState
 createCrawlerState = do
     urlQueue <- newQueueIO Unbounded
@@ -30,6 +29,24 @@ createCrawlerState = do
     urlsCompleted <- S.newIO
     urlsFailed <- M.newIO
     return $ CrawlerState urlQueue parseQueue storeQueue loggingQueue urlsInProgress urlsCompleted urlsFailed
+
+messageHandler :: CrawlerState -> Message -> IO Message
+messageHandler crawlerState (CommandMessage c) = handleCommand c >>= return . AnswerMessage
+    where
+    handleCommand (AddUrl url) = do
+        print url
+        canonicaliseAndAdd crawlerState url
+        return Confirmation
+
+messageHandler crawlerState (QuestionMessage q) = handleQuestion q >>= return . AnswerMessage
+    where
+    handleQuestion GetNumCrawlers = do
+        return $ NumCrawlers 3
+
+canonicaliseAndAdd crawlerState a =
+    case canonicaliseByteString a of
+        Just x -> processNextUrl crawlerState x
+        Nothing -> putStrLn $ "Could not parse URL: " ++ show a
 
 main :: IO ()
 main = do
@@ -46,11 +63,7 @@ main = do
 
     forkWorker workers "logging" $ logErrors crawlerState
 
-    getArgs >>=
-        mapM_ (\a ->
-            case canonicaliseString a of
-                Just x -> processNextUrl crawlerState x
-                Nothing -> putStrLn $ "Could not parse URL: " ++ a)
+    forkWorker workers "commandler" $ receiveMessagesWith (messageHandler crawlerState)
 
     go crawlerState False
     where
@@ -66,5 +79,5 @@ main = do
         putStrLn "."
         threadDelay $ 3000000
 
-        go crawlerState finished
+        go crawlerState False
 
