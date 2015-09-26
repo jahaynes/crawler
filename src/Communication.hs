@@ -13,7 +13,6 @@ import Data.ByteString                      (ByteString)
 data Message = CommandMessage Command
              | QuestionMessage Question
              | AnswerMessage Answer
-             | Confirmation
                deriving (Generic, Show)
 
 data Command = AddUrl ByteString
@@ -26,7 +25,8 @@ data Command = AddUrl ByteString
 data Question = GetNumCrawlers
                 deriving (Generic, Show)
 
-data Answer = NumCrawlers Int
+data Answer = Confirmation
+            | NumCrawlers Int
               deriving (Generic, Show)
 
 instance Serialize Message

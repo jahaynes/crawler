@@ -31,7 +31,7 @@ createCrawlerState = do
     return $ CrawlerState urlQueue parseQueue storeQueue loggingQueue urlsInProgress urlsCompleted urlsFailed
 
 messageHandler :: CrawlerState -> Message -> IO Message
-messageHandler crawlerState (CommandMessage c) = handleCommand c
+messageHandler crawlerState (CommandMessage c) = handleCommand c >>= return . AnswerMessage
     where
     handleCommand (AddUrl url) = do
         print url
