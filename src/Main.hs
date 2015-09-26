@@ -33,20 +33,19 @@ createCrawlerState = do
 messageHandler :: CrawlerState -> Message -> IO Message
 messageHandler crawlerState (CommandMessage c) = handleCommand c >>= return . AnswerMessage
     where
-    handleCommand (AddUrl url) = do
-        print url
-        canonicaliseAndAdd crawlerState url
-        return Confirmation
+    handleCommand (AddUrl url) =
+        case canonicaliseByteString url of
+            Nothing -> return . Failure $ "Couldn't canonicalise url: " ++ show url
+            Just x -> do
+                processNextUrl crawlerState x
+                putStrLn "Added url to frontier"
+                return Confirmation
 
 messageHandler crawlerState (QuestionMessage q) = handleQuestion q >>= return . AnswerMessage
     where
-    handleQuestion GetNumCrawlers = do
-        return $ NumCrawlers 3
-
-canonicaliseAndAdd crawlerState a =
-    case canonicaliseByteString a of
-        Just x -> processNextUrl crawlerState x
-        Nothing -> putStrLn $ "Could not parse URL: " ++ show a
+    handleQuestion (GetQueueSize UrlQueue) = do
+        i <- atomically . size . getUrlQueue $ crawlerState
+        return . QueueSize $ i
 
 main :: IO ()
 main = do

@@ -3,7 +3,7 @@
 module Communication where
 
 import Data.Conduit
-import Control.Monad.Trans.Resource         (ResourceT, runResourceT)
+import Control.Monad.Trans.Resource         (runResourceT)
 import Control.Monad.IO.Class               (liftIO)
 import Data.Conduit.Network
 import Data.Serialize
@@ -22,33 +22,40 @@ data Command = AddUrl ByteString
              | Idle 
                deriving (Generic, Show)
 
-data Question = GetNumCrawlers
+data Question = GetQueueSize QueueName
                 deriving (Generic, Show)
 
+data QueueName = UrlQueue
+               | ParseQueue
+               | StoreQueue
+               | ErrorQueue
+                 deriving (Generic, Show, Read)
+
 data Answer = Confirmation
-            | NumCrawlers Int
+            | Failure String
+            | QueueSize Int
               deriving (Generic, Show)
 
 instance Serialize Message
 instance Serialize Command
 instance Serialize Question
+instance Serialize QueueName
 instance Serialize Answer
 
-sendAndGetReply :: Message -> IO ()
+sendAndGetReply :: Message -> IO Message
 sendAndGetReply msg = do
     runTCPClient (clientSettings 1040 "127.0.0.1") $ \ad -> do
-        runResourceT $
-            appSource ad $$ process $= appSink ad
-    where
-    process = do
-        yield (encode msg)
-        a <- await
-        case a of
-            Nothing -> liftIO $ putStrLn "No reply"
-            Just x ->
-                case decode x :: Either String Message of
-                    Left e -> liftIO $ print e
-                    Right v -> liftIO $ print v
+        runResourceT $ do
+            yield (encode msg) $$ appSink ad
+            appSource ad $$ do
+                a <- await
+                return $
+                    case a of
+                        Nothing -> AnswerMessage (Failure "Got no reply back")
+                        Just x ->
+                            case decode x of
+                                Left e -> AnswerMessage (Failure "Couldn't decode")
+                                Right r -> r
 
 receiveMessagesWith :: (Message -> IO Message) -> IO ()
 receiveMessagesWith f =
@@ -63,5 +70,3 @@ receiveMessagesWith f =
                 Right c -> do
                     r <- liftIO $ f c
                     yield . encode $ r
-
-    
