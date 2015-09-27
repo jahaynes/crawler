@@ -13,7 +13,8 @@ import Data.Char                (isSpace)
 import Data.ByteString.Char8    (ByteString, unpack)
 import qualified Data.ByteString.Char8  as C8
 import Network.URI              (isURI, parseAbsoluteURI, parseRelativeReference)
-import Text.HTML.TagSoup        (Tag (TagOpen), parseTags, isTagOpenName, canonicalizeTags)
+import Text.HTML.TagSoup        (Tag (TagOpen), isTagOpenName, canonicalizeTags)
+import Text.HTML.TagSoup.Fast   (parseTags)
 
 import Control.Applicative              ((<$>), (<*>))
 import Control.Concurrent               (ThreadId, myThreadId)
