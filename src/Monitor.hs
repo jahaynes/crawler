@@ -49,6 +49,8 @@ mainPage = [shamlet|
         <head>
             <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
             <title>Crawler Monitor
-            <script type="text/javascript" src="fay.js">
         <body>
+            <div id="parent">URLs in queue: <span id="urlsInQueue"></span>
+            <div id="start">start</div>
+            <script type="text/javascript" src="fay.js">
 |]

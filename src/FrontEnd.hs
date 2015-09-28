@@ -1,46 +1,36 @@
 {-# LANGUAGE EmptyDataDecls, OverloadedStrings #-}
 module Hello where
 
+import FrontEndTypes
+import Ajax
+
 import Fay.Text
 import FFI
-
-data XMLHttpRequest
-
-type Url = String
-
-ajax :: Url -> (Text -> Fay ()) -> Fay ()
-ajax url f = do
-    req <- xmlHttpRequest    
-    open req url
-    setReadyHandler req $ do
-        done <- isDone req
-        when done $ responseText req >>= f
-    send req ""
-
-    where
-    xmlHttpRequest :: Fay XMLHttpRequest
-    xmlHttpRequest = ffi "new XMLHttpRequest()"
-
-    open :: XMLHttpRequest -> String -> Fay ()
-    open = ffi "%1.open(\"GET\", %2, true)"
-
-    setReadyHandler :: XMLHttpRequest -> Fay () -> Fay ()
-    setReadyHandler = ffi "%1['onreadystatechange'] = %2"
-
-    isDone :: XMLHttpRequest -> Fay Bool
-    isDone = ffi "4 == %1['readyState']"
-    
-    responseText :: XMLHttpRequest -> Fay Text
-    responseText = ffi "%1['responseText']"
-
-    send :: XMLHttpRequest -> String -> Fay ()
-    send = ffi "%1.send(%2)"
-
 
 main :: Fay ()
 main = do
     
-    ajax "/addUrl/something" print
-    
-    
-    
+    getElementById "urlsInQueue" >>= \urlsInQueue ->
+        repeatTask 300 $ ajax "/queueSize/UrlQueue" $ setInnerHTML urlsInQueue
+
+    getElementById "start" >>= \start -> do
+        addEventListener start "onclick" $ \_ -> do
+            ajax "/addUrl/something" print
+            putStrLn "Crawling"
+
+    putStrLn "Loaded"
+
+getElementById :: String -> Fay Element
+getElementById = ffi "document.getElementById(%1)"
+
+addEventListener :: Element -> String -> (Event -> Fay ()) -> Fay ()
+addEventListener = ffi "%1[%2] = %3"
+
+remove :: Element -> Element -> Fay ()
+remove = ffi "%1.removeChild(%2)"
+
+repeatTask :: Int -> Fay () -> Fay TaskId
+repeatTask = ffi "setInterval(%2,%1)"
+
+setInnerHTML :: Element -> Text -> Fay ()
+setInnerHTML = ffi "%1['innerHTML'] = %2"
