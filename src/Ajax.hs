@@ -1,25 +1,32 @@
 module Ajax where
 
 import FrontEndTypes
-import Fay.Text
+import Fay.Text (Text)
 
 import FFI
 
-ajax :: Url -> (Text -> Fay ()) -> Fay ()
-ajax url f = do
-    req <- xmlHttpRequest    
-    open req url
+data Method = GET | POST
+
+ajax :: Method -> Url -> Text -> (Text -> Fay ()) -> Fay ()
+ajax method url content f = do
+    req <- xmlHttpRequest
+    case method of
+        GET -> openGet req url
+        POST -> openPost req url
     setReadyHandler req $ do
         done <- isDone req
         when done $ responseText req >>= f
-    send req ""
+    send req content
 
     where
     xmlHttpRequest :: Fay XMLHttpRequest
     xmlHttpRequest = ffi "new XMLHttpRequest()"
 
-    open :: XMLHttpRequest -> String -> Fay ()
-    open = ffi "%1.open(\"GET\", %2, true)"
+    openGet :: XMLHttpRequest -> Text -> Fay ()
+    openGet = ffi "%1.open(\"GET\", %2, true)"
+
+    openPost :: XMLHttpRequest -> Text -> Fay ()
+    openPost = ffi "%1.open(\"POST\", %2, true)"
 
     setReadyHandler :: XMLHttpRequest -> Fay () -> Fay ()
     setReadyHandler = ffi "%1['onreadystatechange'] = %2"
@@ -30,5 +37,5 @@ ajax url f = do
     responseText :: XMLHttpRequest -> Fay Text
     responseText = ffi "%1['responseText']"
 
-    send :: XMLHttpRequest -> String -> Fay ()
+    send :: XMLHttpRequest -> Text -> Fay ()
     send = ffi "%1.send(%2)"

@@ -18,7 +18,8 @@ data Message = CommandMessage Command
 data Command = AddUrl ByteString
              | RemoveUrl ByteString 
              | SetNumCrawlers Int 
-             | SetNumParsers Int 
+             | SetNumParsers Int
+             | SetUrlPatterns [ByteString]
              | Idle 
                deriving (Generic, Show)
 
