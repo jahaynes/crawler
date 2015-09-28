@@ -24,12 +24,18 @@ spockApp = do
 
     get root $ fromTemplate mainPage
 
-    get ("addUrl" <//> var) $ \url -> do
+    post ("addUrl" <//> var) $ \url -> do
         msg <- liftIO . addUrl $ url
         text . toStrict . T.pack . show $ msg
 
     get ("queueSize" <//> var) $ \qn -> do
         msg <- liftIO . queueSize $ qn
+        text . toStrict . T.pack . show $ msg
+
+    post "urlPatterns" $ do
+        b <- body
+        --Just one for now
+        msg <- liftIO . setPatterns $ [b]
         text . toStrict . T.pack . show $ msg
 
     where
@@ -38,6 +44,9 @@ spockApp = do
 
 addUrl :: String -> IO Message
 addUrl url = sendAndGetReply $ CommandMessage (AddUrl (C8.pack url))
+
+setPatterns :: [ByteString] -> IO Message
+setPatterns patterns = sendAndGetReply $ CommandMessage (SetUrlPatterns patterns)
 
 queueSize :: String -> IO Message
 queueSize name = sendAndGetReply . QuestionMessage . GetQueueSize $ (read name :: QueueName)
@@ -55,8 +64,13 @@ mainPage = [shamlet|
                     <span id="urlsInQueue">
 
             <div>
-                <label for="urlToAdd">Add Seed Url:
-                <input id="urlToAdd" type="text">
+                <div>
+                    <label for="urlToAdd">Add Seed Url:
+                    <input id="urlToAdd" type="text">
+                <div>
+                    <label for="urlPattern">Matching This Pattern:
+                    <input id="urlPattern" type="text">
+
             <a href="#" id="addUrl">Add
 
             <script type="text/javascript" src="fay.js">

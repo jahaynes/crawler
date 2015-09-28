@@ -1,24 +1,26 @@
-{-# LANGUAGE EmptyDataDecls, OverloadedStrings #-}
+{-# LANGUAGE EmptyDataDecls #-}
 module Hello where
 
 import FrontEndTypes
 import Ajax
 
-import Fay.Text
+import Fay.Text as T
 import FFI
 
 main :: Fay ()
 main = do
 
     urlToAddBox <- getElementById "urlToAdd"
+    urlPatternBox <- getElementById "urlPattern"
 
     getElementById "urlsInQueue" >>= \urlsInQueue ->
-        repeatTask 300 $ ajax "/queueSize/UrlQueue" $ setInnerHTML urlsInQueue
+        repeatTask 300 $ ajax GET (T.pack "/queueSize/UrlQueue") empty $ setInnerHTML urlsInQueue
 
     getElementById "addUrl" >>= \btnAdd ->
         addEventListener btnAdd "onclick" $ \e -> do
             preventDefault e
-            getEscapedValue urlToAddBox >>= addUrl
+            getValue urlPatternBox >>= setPatterns
+	    getEscapedValue urlToAddBox >>= addUrl
 
     putStrLn "Loaded"
 
@@ -28,11 +30,20 @@ preventDefault = ffi "%1.preventDefault()"
 getEscapedValue :: Element -> Fay Escaped
 getEscapedValue el = go' el >>= return . Escaped
     where
-    go' :: Element -> Fay String
+    go' :: Element -> Fay Text
     go' = ffi "encodeURIComponent(%1.value.trim())"
 
+getValue :: Element -> Fay Text
+getValue = ffi "%1.value.trim()"
+
+setValue :: Element -> Text -> Fay ()
+setValue = ffi "%1.value = %2"
+
 addUrl :: Escaped -> Fay ()
-addUrl (Escaped url) = ajax ("/addUrl/" ++ url) $ \_ -> return ()
+addUrl (Escaped url) = ajax POST (T.pack "/addUrl/" `T.append` url) empty $ \_ -> return ()
+
+setPatterns :: Text -> Fay ()
+setPatterns patterns = ajax POST (T.pack "/urlPatterns/") patterns $ \_ -> return ()
 
 getElementById :: String -> Fay Element
 getElementById = ffi "document.getElementById(%1)"

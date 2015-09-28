@@ -25,10 +25,11 @@ createCrawlerState = do
     parseQueue <- newQueueIO Unbounded
     storeQueue <- newQueueIO (Bounded 32)
     loggingQueue <- newQueueIO (Bounded 128)
+    urlPatterns <- S.newIO
     urlsInProgress <- S.newIO
     urlsCompleted <- S.newIO
     urlsFailed <- M.newIO
-    return $ CrawlerState urlQueue parseQueue storeQueue loggingQueue urlsInProgress urlsCompleted urlsFailed
+    return $ CrawlerState urlQueue parseQueue storeQueue loggingQueue urlPatterns urlsInProgress urlsCompleted urlsFailed
 
 messageHandler :: CrawlerState -> Message -> IO Message
 messageHandler crawlerState (CommandMessage c) = handleCommand c >>= return . AnswerMessage
@@ -40,6 +41,13 @@ messageHandler crawlerState (CommandMessage c) = handleCommand c >>= return . An
                 processNextUrl crawlerState x
                 putStrLn "Added url to frontier"
                 return Confirmation
+    handleCommand (SetUrlPatterns ps) = do
+        atomically $ do
+            let patterns = getUrlPatterns crawlerState
+            existing <- setAsList patterns
+            mapM_ (`S.delete` patterns) existing
+            mapM_ (`S.insert` patterns) ps
+        return Confirmation
 
 messageHandler crawlerState (QuestionMessage q) = handleQuestion q >>= return . AnswerMessage
     where

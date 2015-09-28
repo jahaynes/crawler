@@ -1,10 +1,12 @@
 module FrontEndTypes where
 
+import Fay.Text (Text)
+
 data Element
 data Event
 data TaskId
 data XMLHttpRequest
 
-type Url = String
+type Url = Text
 
-newtype Escaped = Escaped String
+newtype Escaped = Escaped Text

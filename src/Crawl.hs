@@ -5,14 +5,13 @@ import Fetch
 import Urls
 import Workers
 import Shared
-import Settings
 import Types
 
 import Control.Applicative              ((<$>), (<*>))
 import Control.Concurrent               (ThreadId, myThreadId)
 import Control.Concurrent.STM           (STM, atomically)
 import Control.Monad                    (when, unless, replicateM_)
-import Data.ByteString                  (ByteString)
+import Data.ByteString.Char8            (ByteString, isInfixOf)
 import Data.Maybe                       (isJust)
 import Network.HTTP.Conduit             (newManager, tlsManagerSettings)
 import qualified STMContainers.Set as S
@@ -73,8 +72,9 @@ crawlUrls workers crawlerState threadId = do
         writeQueue (getStoreQueue crawlerState) (redirects, bodyData)
 
 processNextUrl :: CrawlerState -> CanonicalUrl -> IO ()
-processNextUrl crawlerState url =
-    when (isAcceptable url) $
+processNextUrl crawlerState url@(CanonicalUrl url') = do
+    isAcceptable <- atomically checkAcceptable
+    when isAcceptable $
         atomically $ do
             completed <- S.lookup url (getUrlsCompleted crawlerState)
             inProgress <- S.lookup url (getUrlsInProgress crawlerState)
@@ -82,3 +82,8 @@ processNextUrl crawlerState url =
             unless (completed || inProgress || failed) $ do
                 S.insert url (getUrlsInProgress crawlerState)
                 writeQueue (getUrlQueue crawlerState) url
+    where
+    checkAcceptable :: STM Bool
+    checkAcceptable = do
+        ps <- setAsList (getUrlPatterns crawlerState)
+        return . any (\p -> p `isInfixOf` url') $ ps
