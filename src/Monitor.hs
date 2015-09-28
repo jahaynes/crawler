@@ -50,7 +50,14 @@ mainPage = [shamlet|
             <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
             <title>Crawler Monitor
         <body>
-            <div id="parent">URLs in queue: <span id="urlsInQueue"></span>
-            <div id="start">start</div>
+            <div id="parent">URLs in queue:&nbsp;
+                <i>
+                    <span id="urlsInQueue">
+
+            <div>
+                <label for="urlToAdd">Add Seed Url:
+                <input id="urlToAdd" type="text">
+            <a href="#" id="addUrl">Add
+
             <script type="text/javascript" src="fay.js">
 |]

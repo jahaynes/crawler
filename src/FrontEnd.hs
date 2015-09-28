@@ -9,16 +9,30 @@ import FFI
 
 main :: Fay ()
 main = do
-    
+
+    urlToAddBox <- getElementById "urlToAdd"
+
     getElementById "urlsInQueue" >>= \urlsInQueue ->
         repeatTask 300 $ ajax "/queueSize/UrlQueue" $ setInnerHTML urlsInQueue
 
-    getElementById "start" >>= \start -> do
-        addEventListener start "onclick" $ \_ -> do
-            ajax "/addUrl/something" print
-            putStrLn "Crawling"
+    getElementById "addUrl" >>= \btnAdd ->
+        addEventListener btnAdd "onclick" $ \e -> do
+            preventDefault e
+            getEscapedValue urlToAddBox >>= addUrl
 
     putStrLn "Loaded"
+
+preventDefault :: Event -> Fay ()
+preventDefault = ffi "%1.preventDefault()"
+
+getEscapedValue :: Element -> Fay Escaped
+getEscapedValue el = go' el >>= return . Escaped
+    where
+    go' :: Element -> Fay String
+    go' = ffi "encodeURIComponent(%1.value.trim())"
+
+addUrl :: Escaped -> Fay ()
+addUrl (Escaped url) = ajax ("/addUrl/" ++ url) $ \_ -> return ()
 
 getElementById :: String -> Fay Element
 getElementById = ffi "document.getElementById(%1)"

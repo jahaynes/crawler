@@ -6,3 +6,5 @@ data TaskId
 data XMLHttpRequest
 
 type Url = String
+
+newtype Escaped = Escaped String
