@@ -20,7 +20,17 @@ main = do
         addEventListener btnAdd "onclick" $ \e -> do
             preventDefault e
             getValue urlPatternBox >>= setPatterns
-	    getEscapedValue urlToAddBox >>= addUrl
+            getEscapedValue urlToAddBox >>= addUrl
+
+    getElementById "idle" >>= \btnIdle -> do
+        addEventListener btnIdle "onclick" $ \e -> do
+            preventDefault e
+            idle
+
+    getElementById "halt" >>= \btnHalt -> do
+        addEventListener btnHalt "onclick" $ \e -> do
+            preventDefault e
+            halt
 
     putStrLn "Loaded"
 
@@ -41,6 +51,12 @@ setValue = ffi "%1.value = %2"
 
 addUrl :: Escaped -> Fay ()
 addUrl (Escaped url) = ajax POST (T.pack "/addUrl/" `T.append` url) empty $ \_ -> return ()
+
+idle :: Fay ()
+idle = ajax POST (T.pack "/idle") empty $ \_ -> return ()
+
+halt :: Fay ()
+halt = ajax POST (T.pack "/halt") empty $ \_ -> return ()
 
 setPatterns :: Text -> Fay ()
 setPatterns patterns = ajax POST (T.pack "/urlPatterns/") patterns $ \_ -> return ()

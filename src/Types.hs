@@ -4,7 +4,7 @@ import CountedQueue
 
 import Data.ByteString.Char8 
 import Data.Hashable
-import Control.Concurrent.STM           (STM)
+import Control.Concurrent.STM           (STM, TVar)
 import qualified STMContainers.Set as S
 import qualified STMContainers.Map as M
 import ListT                            (toList)
@@ -12,6 +12,7 @@ import ListT                            (toList)
 type Crawled = ([CanonicalUrl], ByteString)
 
 data CrawlerState = CrawlerState {
+    getCrawlerStatus :: TVar CrawlerStatus,
     getUrlQueue :: CountedQueue CanonicalUrl,  
     getParseQueue :: CountedQueue Crawled,
     getStoreQueue :: CountedQueue Crawled,
@@ -21,6 +22,8 @@ data CrawlerState = CrawlerState {
     getUrlsCompleted :: S.Set CanonicalUrl,
     getUrlsFailed :: M.Map CanonicalUrl String
 }
+
+data CrawlerStatus = RunningStatus | IdleStatus | HaltingStatus deriving Show
 
 newtype CanonicalUrl = CanonicalUrl ByteString
 

@@ -3,6 +3,7 @@
 module Communication where
 
 import Data.Conduit
+import Control.Exception                    (IOException, catch)
 import Control.Monad.Trans.Resource         (runResourceT)
 import Control.Monad.IO.Class               (liftIO)
 import Data.Conduit.Network
@@ -21,6 +22,7 @@ data Command = AddUrl ByteString
              | SetNumParsers Int
              | SetUrlPatterns [ByteString]
              | Idle 
+             | Halt
                deriving (Generic, Show)
 
 data Question = GetQueueSize QueueName
@@ -44,19 +46,26 @@ instance Serialize QueueName
 instance Serialize Answer
 
 sendAndGetReply :: Message -> IO Message
-sendAndGetReply msg = do
-    runTCPClient (clientSettings 1040 "127.0.0.1") $ \ad -> do
-        runResourceT $ do
-            yield (encode msg) $$ appSink ad
-            appSource ad $$ do
-                a <- await
-                return $
-                    case a of
-                        Nothing -> AnswerMessage (Failure "Got no reply back")
-                        Just x ->
-                            case decode x of
-                                Left e -> AnswerMessage (Failure "Couldn't decode")
-                                Right r -> r
+sendAndGetReply msg = catch sendAndGetReply' handleError
+
+    where
+    handleError :: IOException -> IO Message
+    handleError _ = return $ AnswerMessage (Failure "Monitor could not connect to Crawler")
+
+    sendAndGetReply' :: IO Message
+    sendAndGetReply' =
+        runTCPClient (clientSettings 1040 "127.0.0.1") $ \ad ->
+            runResourceT $ do
+                yield (encode msg) $$ appSink ad
+                appSource ad $$ do
+                    a <- await
+                    return $
+                        case a of
+                            Nothing -> AnswerMessage (Failure "Got no reply back")
+                            Just x ->
+                                case decode x of
+                                    Left e -> AnswerMessage (Failure "Couldn't decode")
+                                    Right r -> r
 
 receiveMessagesWith :: (Message -> IO Message) -> IO ()
 receiveMessagesWith f =

@@ -6,7 +6,7 @@ import Communication
 import CountedQueue
 import Crawl
 import Parse
-import Urls
+import MessageHandler   (handleMessages)
 import Settings
 import Types
 import Output
@@ -14,13 +14,14 @@ import Errors
 import Workers
 
 import Control.Concurrent               (threadDelay)
-import Control.Concurrent.STM           (atomically)
+import Control.Concurrent.STM           (atomically, newTVarIO)
 
 import qualified STMContainers.Set as S
 import qualified STMContainers.Map as M
 
 createCrawlerState :: IO CrawlerState
 createCrawlerState = do
+    crawlerStatus <- newTVarIO RunningStatus
     urlQueue <- newQueueIO Unbounded
     parseQueue <- newQueueIO Unbounded
     storeQueue <- newQueueIO (Bounded 32)
@@ -29,31 +30,7 @@ createCrawlerState = do
     urlsInProgress <- S.newIO
     urlsCompleted <- S.newIO
     urlsFailed <- M.newIO
-    return $ CrawlerState urlQueue parseQueue storeQueue loggingQueue urlPatterns urlsInProgress urlsCompleted urlsFailed
-
-messageHandler :: CrawlerState -> Message -> IO Message
-messageHandler crawlerState (CommandMessage c) = handleCommand c >>= return . AnswerMessage
-    where
-    handleCommand (AddUrl url) =
-        case canonicaliseByteString url of
-            Nothing -> return . Failure $ "Couldn't canonicalise url: " ++ show url
-            Just x -> do
-                processNextUrl crawlerState x
-                putStrLn "Added url to frontier"
-                return Confirmation
-    handleCommand (SetUrlPatterns ps) = do
-        atomically $ do
-            let patterns = getUrlPatterns crawlerState
-            existing <- setAsList patterns
-            mapM_ (`S.delete` patterns) existing
-            mapM_ (`S.insert` patterns) ps
-        return Confirmation
-
-messageHandler crawlerState (QuestionMessage q) = handleQuestion q >>= return . AnswerMessage
-    where
-    handleQuestion (GetQueueSize UrlQueue) = do
-        i <- atomically . size . getUrlQueue $ crawlerState
-        return . QueueSize $ i
+    return $ CrawlerState crawlerStatus urlQueue parseQueue storeQueue loggingQueue urlPatterns urlsInProgress urlsCompleted urlsFailed
 
 main :: IO ()
 main = do
@@ -70,7 +47,7 @@ main = do
 
     forkWorker workers "logging" $ logErrors crawlerState
 
-    forkWorker workers "commandler" $ receiveMessagesWith (messageHandler crawlerState)
+    forkWorker workers "commandler" $ receiveMessagesWith (handleMessages crawlerState)
 
     go crawlerState False
     where

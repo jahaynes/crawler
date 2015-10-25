@@ -20,6 +20,7 @@ main =
             middleware . staticPolicy . addBase $ "static"
             spockApp
 
+spockApp :: SpockCtxT () IO ()
 spockApp = do
 
     get root $ fromTemplate mainPage
@@ -38,6 +39,14 @@ spockApp = do
         msg <- liftIO . setPatterns $ [b]
         text . toStrict . T.pack . show $ msg
 
+    post ("idle") $ do
+        msg <- liftIO idle
+        text . toStrict . T.pack . show $ msg
+
+    post ("halt") $ do
+        msg <- liftIO halt
+        text . toStrict . T.pack . show $ msg
+
     where
     fromTemplate :: Html -> ActionT IO a
     fromTemplate = html . toStrict . renderHtml
@@ -50,6 +59,12 @@ setPatterns patterns = sendAndGetReply $ CommandMessage (SetUrlPatterns patterns
 
 queueSize :: String -> IO Message
 queueSize name = sendAndGetReply . QuestionMessage . GetQueueSize $ (read name :: QueueName)
+
+idle :: IO Message
+idle = sendAndGetReply $ CommandMessage Idle
+
+halt :: IO Message
+halt = sendAndGetReply $ CommandMessage Halt
 
 mainPage :: Markup
 mainPage = [shamlet|
@@ -72,6 +87,10 @@ mainPage = [shamlet|
                     <input id="urlPattern" type="text">
 
             <a href="#" id="addUrl">Add
+
+            <a href="#" id="idle">Idle
+
+            <a href="#" id="halt">Halt
 
             <script type="text/javascript" src="fay.js">
 |]
