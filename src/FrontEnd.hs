@@ -22,6 +22,9 @@ main = do
             getValue urlPatternBox >>= setPatterns
             getEscapedValue urlToAddBox >>= addUrl
 
+    getElementById "crawlerStatus" >>= \crawlerStatus ->
+        repeatTask 300 $ ajax GET (T.pack "/crawlerStatus") empty $ setInnerHTML crawlerStatus
+
     getElementById "idle" >>= \btnIdle -> do
         addEventListener btnIdle "onclick" $ \e -> do
             preventDefault e

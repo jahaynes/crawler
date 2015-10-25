@@ -39,11 +39,15 @@ spockApp = do
         msg <- liftIO . setPatterns $ [b]
         text . toStrict . T.pack . show $ msg
 
-    post ("idle") $ do
+    get "crawlerStatus" $ do
+        msg <- liftIO crawlerStatus
+        text . toStrict . T.pack . show $ msg
+
+    post "idle" $ do
         msg <- liftIO idle
         text . toStrict . T.pack . show $ msg
 
-    post ("halt") $ do
+    post "halt" $ do
         msg <- liftIO halt
         text . toStrict . T.pack . show $ msg
 
@@ -60,6 +64,9 @@ setPatterns patterns = sendAndGetReply $ CommandMessage (SetUrlPatterns patterns
 queueSize :: String -> IO Message
 queueSize name = sendAndGetReply . QuestionMessage . GetQueueSize $ (read name :: QueueName)
 
+crawlerStatus :: IO Message
+crawlerStatus = sendAndGetReply $ QuestionMessage GetCrawlerStatus
+
 idle :: IO Message
 idle = sendAndGetReply $ CommandMessage Idle
 
@@ -74,9 +81,11 @@ mainPage = [shamlet|
             <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
             <title>Crawler Monitor
         <body>
-            <div id="parent">URLs in queue:&nbsp;
-                <i>
-                    <span id="urlsInQueue">
+            <div>
+                <div>
+                    URLs in queue:&nbsp;
+                        <i>
+                            <span id="urlsInQueue">
 
             <div>
                 <div>
@@ -91,6 +100,10 @@ mainPage = [shamlet|
             <a href="#" id="idle">Idle
 
             <a href="#" id="halt">Halt
+
+            <div id="parent">Crawler Status:&nbsp;
+                <i>
+                    <span id="crawlerStatus">
 
             <script type="text/javascript" src="fay.js">
 |]

@@ -1,18 +1,19 @@
 module MessageHandler where
 
-import CountedQueue
-import Types
-
 import Communication
+import CountedQueue
 import Crawl
+import Parse
+import Types
 import Urls
+import Workers
 
 import Control.Concurrent.STM           (atomically, readTVar, modifyTVar')
 
 import qualified STMContainers.Set as S
 
-handleMessages :: CrawlerState -> Message -> IO Message
-handleMessages crawlerState (CommandMessage c) = handleCommand c >>= return . AnswerMessage
+handleMessages :: CrawlerState -> Workers -> Message -> IO Message
+handleMessages crawlerState workers (CommandMessage c) = handleCommand c >>= return . AnswerMessage
     where
 
     {- Add a URL -}
@@ -53,13 +54,12 @@ handleMessages crawlerState (CommandMessage c) = handleCommand c >>= return . An
         if willIdle
             then do
                 putStrLn $ "Switching from " ++ show oldStatus ++ " to idle..."
+                setNumCrawlers crawlerState workers 0
                 return Confirmation
             else do
                 let msg = "Can't start idling from state " ++ show oldStatus
                 putStrLn msg
                 return $ Failure msg
-
-        --RunningStatus | IdleStatus | HaltingStatus
 
     {- Tell the crawler to halt -}
     handleCommand (Halt) = do
@@ -74,13 +74,15 @@ handleMessages crawlerState (CommandMessage c) = handleCommand c >>= return . An
         if willHalt
             then do
                 putStrLn $ "Halting..."
+                setNumCrawlers crawlerState workers 0
+                setNumParsers crawlerState workers 0
                 return Confirmation
             else do
                 let msg = "Can't halt (was already halting)"
                 putStrLn msg
                 return $ Failure msg
 
-handleMessages crawlerState (QuestionMessage q) = handleQuestion q >>= return . AnswerMessage
+handleMessages crawlerState _ (QuestionMessage q) = handleQuestion q >>= return . AnswerMessage
     where
 
     {- Ask the size of the URL Queue -}
@@ -93,4 +95,9 @@ handleMessages crawlerState (QuestionMessage q) = handleQuestion q >>= return . 
             StoreQueue -> undefined
             ErrorQueue -> undefined
         
-handleMessages _ (AnswerMessage _) = error "Shouldn't have received AnswerMessage"
+    {- Ask for the Crawler's current Status -}
+    handleQuestion (GetCrawlerStatus) = do
+        status <- atomically . readTVar $ getCrawlerStatus crawlerState
+        return $ Status status
+        
+handleMessages _ _ (AnswerMessage _) = error "Shouldn't have received AnswerMessage"

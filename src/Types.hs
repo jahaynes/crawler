@@ -1,6 +1,7 @@
 module Types where
 
 import CountedQueue
+import Communication
 
 import Data.ByteString.Char8 
 import Data.Hashable
@@ -22,8 +23,6 @@ data CrawlerState = CrawlerState {
     getUrlsCompleted :: S.Set CanonicalUrl,
     getUrlsFailed :: M.Map CanonicalUrl String
 }
-
-data CrawlerStatus = RunningStatus | IdleStatus | HaltingStatus deriving Show
 
 newtype CanonicalUrl = CanonicalUrl ByteString
 

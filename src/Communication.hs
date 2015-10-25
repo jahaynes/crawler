@@ -26,6 +26,7 @@ data Command = AddUrl ByteString
                deriving (Generic, Show)
 
 data Question = GetQueueSize QueueName
+              | GetCrawlerStatus
                 deriving (Generic, Show)
 
 data QueueName = UrlQueue
@@ -37,13 +38,17 @@ data QueueName = UrlQueue
 data Answer = Confirmation
             | Failure String
             | QueueSize Int
+            | Status CrawlerStatus
               deriving (Generic, Show)
+
+data CrawlerStatus = RunningStatus | IdleStatus | HaltingStatus deriving (Generic, Show)
 
 instance Serialize Message
 instance Serialize Command
 instance Serialize Question
 instance Serialize QueueName
 instance Serialize Answer
+instance Serialize CrawlerStatus
 
 sendAndGetReply :: Message -> IO Message
 sendAndGetReply msg = catch sendAndGetReply' handleError

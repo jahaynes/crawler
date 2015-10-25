@@ -47,7 +47,7 @@ main = do
 
     forkWorker workers "logging" $ logErrors crawlerState
 
-    forkWorker workers "commandler" $ receiveMessagesWith (handleMessages crawlerState)
+    forkWorker workers "commandler" $ receiveMessagesWith (handleMessages crawlerState workers)
 
     go crawlerState False
     where
