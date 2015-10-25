@@ -88,12 +88,10 @@ handleMessages crawlerState _ (QuestionMessage q) = handleQuestion q >>= return 
     {- Ask the size of the URL Queue -}
     handleQuestion (GetQueueSize queue) =
         case queue of
-            UrlQueue -> do
-                i <- atomically . size . getUrlQueue $ crawlerState
-                return . QueueSize $ i
-            ParseQueue -> undefined
-            StoreQueue -> undefined
-            ErrorQueue -> undefined
+            UrlQueue -> return . QueueSize =<< (atomically . size . getUrlQueue $ crawlerState)
+            ParseQueue -> return . QueueSize =<< (atomically . size . getParseQueue $ crawlerState)
+            StoreQueue -> return . QueueSize =<< (atomically . size . getStoreQueue $ crawlerState)
+            ErrorQueue -> return . QueueSize =<< (atomically . size . getLogQueue $ crawlerState)
         
     {- Ask for the Crawler's current Status -}
     handleQuestion (GetCrawlerStatus) = do

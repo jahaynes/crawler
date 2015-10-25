@@ -82,10 +82,26 @@ mainPage = [shamlet|
             <title>Crawler Monitor
         <body>
             <div>
+
+                <div>
+                    Crawler Status:&nbsp;
+                    <i><span id="crawlerStatus">
+
                 <div>
                     URLs in queue:&nbsp;
-                        <i>
-                            <span id="urlsInQueue">
+                    <i><span id="urlsInQueue">
+
+                <div>
+                    Pages awaiting parsing:&nbsp;
+                    <i><span id="parseQueue">
+                    
+                <div>
+                    Pages awaiting storage:&nbsp;
+                    <i><span id="storeQueue">
+                    
+                <div>
+                    Messages to be logged:&nbsp;
+                    <i><span id="logQueue">
 
             <div>
                 <div>
@@ -100,10 +116,6 @@ mainPage = [shamlet|
             <a href="#" id="idle">Idle
 
             <a href="#" id="halt">Halt
-
-            <div id="parent">Crawler Status:&nbsp;
-                <i>
-                    <span id="crawlerStatus">
 
             <script type="text/javascript" src="fay.js">
 |]

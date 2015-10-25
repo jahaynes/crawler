@@ -16,6 +16,15 @@ main = do
     getElementById "urlsInQueue" >>= \urlsInQueue ->
         repeatTask 300 $ ajax GET (T.pack "/queueSize/UrlQueue") empty $ setInnerHTML urlsInQueue
 
+    getElementById "parseQueue" >>= \parseQueue ->
+        repeatTask 300 $ ajax GET (T.pack "/queueSize/ParseQueue") empty $ setInnerHTML parseQueue
+
+    getElementById "storeQueue" >>= \storeQueue ->
+        repeatTask 300 $ ajax GET (T.pack "/queueSize/StoreQueue") empty $ setInnerHTML storeQueue
+
+    getElementById "logQueue" >>= \logQueue ->
+        repeatTask 300 $ ajax GET (T.pack "/queueSize/ErrorQueue") empty $ setInnerHTML logQueue
+
     getElementById "addUrl" >>= \btnAdd ->
         addEventListener btnAdd "onclick" $ \e -> do
             preventDefault e
