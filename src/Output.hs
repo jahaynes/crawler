@@ -8,30 +8,37 @@ import Control.Applicative              ((<$>))
 import Control.Concurrent.STM           (atomically, readTVar, modifyTVar')
 import Control.Concurrent               (threadDelay)
 
+import Data.ByteString (ByteString)
+import Data.Smashy.Types
+import qualified Data.Smashy.Map    as HM
+
 data Timing = Later | Now
 
 storePages :: CrawlerState -> IO ()
-storePages crawlerState = go Now
+storePages crawlerState = do
+    hm <- HM.new (Disk "stored")
+    go hm Now
 
     where
-    go :: Timing -> IO ()
-    go timing = do
+    go :: HashMap ByteString ByteString -> Timing -> IO ()
+    go hm timing = do
         halting <- atomically checkHalt
         if halting
-            then flushOutput
-            else grab timing
+            then flushOutput hm
+            else grab hm timing
 
-    grab Later = threadDelay 1000000 >> go Now
-    grab Now = do
+    grab hm Later = threadDelay 1000000 >> go hm Now
+    grab hm Now = do
         mVals <- atomically $ tryReadQueue (getStoreQueue crawlerState)
         case mVals of
-            Nothing -> go Later
+            Nothing -> go hm Later
             Just (redirectChain, content) -> do
+                hm' <- HM.storeOne hm ((\(CanonicalUrl url) -> url) (last redirectChain), content)
                 appendFile "stored.log" (show redirectChain ++ "\n")
-                go Now
+                go hm' Now
 
     checkHalt = (== HaltingStatus) <$> (readTVar $ getCrawlerStatus crawlerState)
 
-    flushOutput = do
-        --Do necessary flushing here
+    flushOutput hm = do
+        HM.close hm
         atomically $ modifyTVar' (getCrawlerStatus crawlerState) (const Halted)
