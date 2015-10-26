@@ -38,7 +38,7 @@ main = do
 
     crawlerState <- createCrawlerState
 
-    workers <- initialiseWorkers crawlerState
+    workers <- initialiseWorkers
 
     setNumCrawlers crawlerState workers numStartCrawlers
 

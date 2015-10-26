@@ -5,7 +5,10 @@ import Control.Concurrent.STM           (STM, atomically)
 import Control.Monad                    (when, unless)
 import qualified ListT             as L
 import qualified STMContainers.Set as S
---import qualified STMContainers.Map as M
+import qualified STMContainers.Map as M
+
+mapAsList :: M.Map a b -> STM [(a,b)]
+mapAsList = L.toList . M.stream
 
 sizeOfSet :: S.Set a -> STM Int
 sizeOfSet = L.fold (\a _ -> return (a + 1)) 0 . S.stream

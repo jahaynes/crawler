@@ -25,6 +25,9 @@ main = do
     getElementById "logQueue" >>= \logQueue ->
         repeatTask 300 $ ajax GET (T.pack "/queueSize/ErrorQueue") empty $ setInnerHTML logQueue
 
+    getElementById "workerStatuses" >>= \workerStatuses ->
+        repeatTask 300 $ ajax GET (T.pack "/workerStatuses") empty $ setInnerHTML workerStatuses
+
     getElementById "addUrl" >>= \btnAdd ->
         addEventListener btnAdd "onclick" $ \e -> do
             preventDefault e

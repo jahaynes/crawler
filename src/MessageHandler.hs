@@ -4,11 +4,13 @@ import Communication
 import CountedQueue
 import Crawl
 import Parse
+import Shared
 import Types
 import Urls
 import Workers
 
 import Control.Concurrent.STM           (atomically, readTVar, modifyTVar')
+import GHC.Conc                         (threadStatus)
 
 import qualified STMContainers.Set as S
 
@@ -82,7 +84,7 @@ handleMessages crawlerState workers (CommandMessage c) = handleCommand c >>= ret
                 putStrLn msg
                 return $ Failure msg
 
-handleMessages crawlerState _ (QuestionMessage q) = handleQuestion q >>= return . AnswerMessage
+handleMessages crawlerState workers (QuestionMessage q) = handleQuestion q >>= return . AnswerMessage
     where
 
     {- Ask the size of the URL Queue -}
@@ -92,10 +94,16 @@ handleMessages crawlerState _ (QuestionMessage q) = handleQuestion q >>= return 
             ParseQueue -> return . QueueSize =<< (atomically . size . getParseQueue $ crawlerState)
             StoreQueue -> return . QueueSize =<< (atomically . size . getStoreQueue $ crawlerState)
             ErrorQueue -> return . QueueSize =<< (atomically . size . getLogQueue $ crawlerState)
-        
+
     {- Ask for the Crawler's current Status -}
-    handleQuestion (GetCrawlerStatus) = do
-        status <- atomically . readTVar $ getCrawlerStatus crawlerState
-        return $ Status status
-        
+    handleQuestion GetCrawlerStatus = return . CrawlerStatus =<< (atomically . readTVar $ getCrawlerStatus crawlerState)
+
+    {- Get the workers' statuses -}
+    handleQuestion GetWorkerStatuses = do
+        ls <- atomically $ mapAsList (getActiveThreads workers)
+        statuses <- mapM threadStatus (map fst ls)
+        let ns = zip (map snd ls) statuses
+            ss = map (\(n,s) -> n ++ ": " ++ show s) ns
+        return $ WorkerStatus ss
+
 handleMessages _ _ (AnswerMessage _) = error "Shouldn't have received AnswerMessage"

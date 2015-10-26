@@ -43,6 +43,10 @@ spockApp = do
         msg <- liftIO crawlerStatus
         text . toStrict . T.pack . show $ msg
 
+    get "workerStatuses" $ do
+        msg <- liftIO workerStatuses
+        text . toStrict . T.pack . show $ msg
+
     post "idle" $ do
         msg <- liftIO idle
         text . toStrict . T.pack . show $ msg
@@ -67,6 +71,9 @@ queueSize name = sendAndGetReply . QuestionMessage . GetQueueSize $ (read name :
 crawlerStatus :: IO Message
 crawlerStatus = sendAndGetReply $ QuestionMessage GetCrawlerStatus
 
+workerStatuses :: IO Message
+workerStatuses = sendAndGetReply $ QuestionMessage GetWorkerStatuses
+
 idle :: IO Message
 idle = sendAndGetReply $ CommandMessage Idle
 
@@ -85,23 +92,28 @@ mainPage = [shamlet|
 
                 <div>
                     Crawler Status:&nbsp;
-                    <i><span id="crawlerStatus">
+                    <i>
+                        <span id="crawlerStatus">
 
                 <div>
                     URLs in queue:&nbsp;
-                    <i><span id="urlsInQueue">
+                    <i>
+                        <span id="urlsInQueue">
 
                 <div>
                     Pages awaiting parsing:&nbsp;
-                    <i><span id="parseQueue">
+                    <i>
+                        <span id="parseQueue">
                     
                 <div>
                     Pages awaiting storage:&nbsp;
-                    <i><span id="storeQueue">
+                    <i>
+                        <span id="storeQueue">
                     
                 <div>
                     Messages to be logged:&nbsp;
-                    <i><span id="logQueue">
+                    <i>
+                        <span id="logQueue">
 
             <div>
                 <div>
@@ -117,5 +129,10 @@ mainPage = [shamlet|
 
             <a href="#" id="halt">Halt
 
-            <script type="text/javascript" src="fay.js">
+            <div>
+                <label for="workerStatuses">Worker Statuses:&nbsp;
+                <i>
+                    <span id="workerStatuses">
+
+            <script type="text/javascript" src="FrontEnd.js">
 |]

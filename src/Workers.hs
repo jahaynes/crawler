@@ -1,12 +1,7 @@
 module Workers where
 
-import Types
-
-import Control.Concurrent                   (ThreadId, forkIO, threadDelay)
+import Control.Concurrent                   (ThreadId, forkIO)
 import Control.Concurrent.STM               (STM, atomically)
-import Control.Monad                        (forever)
-import GHC.Conc                             (threadStatus)
-import qualified ListT              as L
 import qualified STMContainers.Set  as S
 import qualified STMContainers.Map  as M
 
@@ -20,8 +15,8 @@ data Workers = Workers {
     getActiveThreads :: M.Map ThreadId String
 }
 
-initialiseWorkers :: CrawlerState -> IO Workers
-initialiseWorkers crawlerState = do
+initialiseWorkers :: IO Workers
+initialiseWorkers = do
 
     crawlerThreads <- S.newIO
     crawlerThreadsToStop <- S.newIO 
@@ -38,28 +33,10 @@ initialiseWorkers crawlerState = do
                             getParserThreadsToStop = parserThreadsToStop,
 
                             getActiveThreads = activeThreads }
-    forkWorker workers "Monitor" $ monitor crawlerState workers
     return workers
 
 subscribe :: Workers -> String -> ThreadId -> STM ()
 subscribe workers threadName threadId = M.insert threadName threadId (getActiveThreads workers)
-
-monitor :: CrawlerState -> Workers -> IO ()
-monitor crawlerState workers = forever $ do
-    
-    ls <- atomically $ mapAsList (getActiveThreads workers)
-    
-    stati <- mapM threadStatus (map fst ls)
-    
-    let ns = zip (map snd ls) stati
-    
-    mapM_ (\(n,s) -> putStrLn $ n ++ ": " ++ show s) ns
-    
-    threadDelay 1000000
-
-    where
-    mapAsList :: M.Map a b -> STM [(a,b)]
-    mapAsList = L.toList . M.stream
 
 forkWorker :: Workers -> String -> IO () -> IO ()
 forkWorker workers threadName a = do

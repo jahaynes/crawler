@@ -27,6 +27,7 @@ data Command = AddUrl ByteString
 
 data Question = GetQueueSize QueueName
               | GetCrawlerStatus
+              | GetWorkerStatuses
                 deriving (Generic, Show)
 
 data QueueName = UrlQueue
@@ -38,7 +39,8 @@ data QueueName = UrlQueue
 data Answer = Confirmation
             | Failure String
             | QueueSize Int
-            | Status CrawlerStatus
+            | CrawlerStatus CrawlerStatus
+            | WorkerStatus [String]
               deriving (Generic, Show)
 
 data CrawlerStatus = RunningStatus | IdleStatus | HaltingStatus | Halted deriving (Generic, Eq, Show)
