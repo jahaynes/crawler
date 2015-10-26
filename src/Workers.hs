@@ -1,7 +1,5 @@
 module Workers where
 
-import CountedQueue
-import Errors
 import Types
 
 import Control.Concurrent                   (ThreadId, forkIO, threadDelay)
@@ -40,7 +38,7 @@ initialiseWorkers crawlerState = do
                             getParserThreadsToStop = parserThreadsToStop,
 
                             getActiveThreads = activeThreads }
-    forkWorker workers "monitor" $ monitor crawlerState workers
+    forkWorker workers "Monitor" $ monitor crawlerState workers
     return workers
 
 subscribe :: Workers -> String -> ThreadId -> STM ()

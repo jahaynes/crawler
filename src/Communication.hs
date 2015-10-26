@@ -41,7 +41,7 @@ data Answer = Confirmation
             | Status CrawlerStatus
               deriving (Generic, Show)
 
-data CrawlerStatus = RunningStatus | IdleStatus | HaltingStatus deriving (Generic, Show)
+data CrawlerStatus = RunningStatus | IdleStatus | HaltingStatus | Halted deriving (Generic, Eq, Show)
 
 instance Serialize Message
 instance Serialize Command
@@ -69,7 +69,7 @@ sendAndGetReply msg = catch sendAndGetReply' handleError
                             Nothing -> AnswerMessage (Failure "Got no reply back")
                             Just x ->
                                 case decode x of
-                                    Left e -> AnswerMessage (Failure "Couldn't decode")
+                                    Left e -> AnswerMessage (Failure $ "Couldn't decode: " ++ show e)
                                     Right r -> r
 
 receiveMessagesWith :: (Message -> IO Message) -> IO ()

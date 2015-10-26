@@ -13,8 +13,9 @@ import Output
 import Errors
 import Workers
 
+import Control.Applicative              ((<$>))
 import Control.Concurrent               (threadDelay)
-import Control.Concurrent.STM           (atomically, newTVarIO)
+import Control.Concurrent.STM           (atomically, newTVarIO, readTVar)
 
 import qualified STMContainers.Set as S
 import qualified STMContainers.Map as M
@@ -43,25 +44,16 @@ main = do
 
     setNumParsers crawlerState workers numStartParsers
 
-    forkWorker workers "storage" $ storePages crawlerState
+    forkWorker workers "Storage" $ storePages crawlerState
 
-    forkWorker workers "logging" $ logErrors crawlerState
+    forkWorker workers "Logging" $ logErrors crawlerState
 
-    forkWorker workers "commandler" $ receiveMessagesWith (handleMessages crawlerState workers)
+    forkWorker workers "Message Handler" $ receiveMessagesWith (handleMessages crawlerState workers)
 
-    go crawlerState False
+    go crawlerState 
     where
-    go            _ True = return ()
-    go crawlerState False = do
-
-        finished <- atomically $ do
-            a <- isEmpty . getUrlQueue $ crawlerState
-            b <- isEmpty . getParseQueue $ crawlerState
-            c <- S.null . getUrlsInProgress $ crawlerState
-            return $ a && b && c
-
-        putStrLn "."
-        threadDelay $ 3000000
-
-        go crawlerState False
-
+    go crawlerState = do
+        halted <- (== Halted) <$> (atomically . readTVar $ getCrawlerStatus crawlerState)
+        if halted
+            then return ()
+            else threadDelay 1000000 >> go crawlerState

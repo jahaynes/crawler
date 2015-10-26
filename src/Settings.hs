@@ -2,9 +2,6 @@
 
 module Settings where
 
-import Urls (startsWith)
-import Types
-
 import Network.HTTP.Conduit (Request, addProxy)
 
 numStartCrawlers :: Int

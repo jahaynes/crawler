@@ -30,6 +30,13 @@ readQueue :: CountedQueue a -> STM a
 readQueue (CountedQueue sz q) = TV.modifyTVar' sz (\x -> x-1) >> Q.readTQueue q
 readQueue (BoundedCountedQueue sz bq) = TV.modifyTVar' sz (\x -> x-1) >> BQ.readTBQueue bq
 
+tryReadQueue :: CountedQueue a -> STM (Maybe a)
+tryReadQueue queue =
+    isEmpty queue >>= \empty ->
+        if empty
+            then return Nothing
+            else Just <$> readQueue queue
+
 writeQueue :: CountedQueue a -> a -> STM ()
 writeQueue (CountedQueue sz q) val = Q.writeTQueue q val >> TV.modifyTVar' sz (+1)
 writeQueue (BoundedCountedQueue sz bq) val = BQ.writeTBQueue bq val >> TV.modifyTVar' sz (+1)
