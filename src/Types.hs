@@ -38,5 +38,9 @@ instance Show CanonicalUrl where
 data Loggable = LoggableWarning CanonicalUrl ByteString
               | LoggableError CanonicalUrl ByteString
 
+type Reason = String
+
+data Accepted = Accepted | NotAccepted Reason deriving Show
+
 setAsList :: S.Set a -> STM [a]
 setAsList = toList . S.stream

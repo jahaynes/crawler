@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Crawl where
 
 import CountedQueue
@@ -10,7 +12,7 @@ import Types
 import Control.Applicative              ((<$>), (<*>))
 import Control.Concurrent               (ThreadId, myThreadId)
 import Control.Concurrent.STM           (STM, atomically)
-import Control.Monad                    (when, unless, replicateM_)
+import Control.Monad                    (replicateM_)
 import Data.ByteString.Char8            (ByteString, isInfixOf)
 import Data.Maybe                       (isJust)
 import Network.HTTP.Conduit             (newManager, tlsManagerSettings)
@@ -55,14 +57,18 @@ crawlUrls workers crawlerState threadId = do
         (mBodyData, redirects) <- getWithRedirects man nextUrl
 
         case mBodyData of
-            Nothing -> atomically $ failedDownload nextUrl
-            Just bodyData -> atomically $ successfulDownload nextUrl redirects bodyData
+            Left err -> do
+                putStrLn "Failed to download!"
+                print err
+                atomically $ failedDownload nextUrl
+            Right bodyData -> atomically $ successfulDownload nextUrl redirects bodyData
 
     where
     failedDownload :: CanonicalUrl -> STM ()
     failedDownload attemptedUrl = do
         S.delete attemptedUrl (getUrlsInProgress crawlerState)
         M.insert "Couldn't get data!" attemptedUrl (getUrlsFailed crawlerState)
+        writeQueue (getLogQueue crawlerState) (LoggableError attemptedUrl "placeholder error msg")
 
     successfulDownload :: CanonicalUrl -> [CanonicalUrl] -> ByteString -> STM ()
     successfulDownload attemptedUrl redirects bodyData = do
@@ -71,17 +77,27 @@ crawlUrls workers crawlerState threadId = do
         writeQueue (getParseQueue crawlerState) (redirects, bodyData)
         writeQueue (getStoreQueue crawlerState) (redirects, bodyData)
 
-processNextUrl :: CrawlerState -> CanonicalUrl -> IO ()
+processNextUrl :: CrawlerState -> CanonicalUrl -> IO Accepted
 processNextUrl crawlerState url@(CanonicalUrl url') = do
     isAcceptable <- atomically checkAcceptable
-    when isAcceptable $
-        atomically $ do
-            completed <- S.lookup url (getUrlsCompleted crawlerState)
-            inProgress <- S.lookup url (getUrlsInProgress crawlerState)
-            failed <- isJust <$> M.lookup url (getUrlsFailed crawlerState)
-            unless (completed || inProgress || failed) $ do
-                S.insert url (getUrlsInProgress crawlerState)
-                writeQueue (getUrlQueue crawlerState) url
+    if isAcceptable
+        then do
+            accepted <- atomically $ do
+                completed <- S.lookup url (getUrlsCompleted crawlerState)
+                inProgress <- S.lookup url (getUrlsInProgress crawlerState)
+                failed <- isJust <$> M.lookup url (getUrlsFailed crawlerState)
+
+                case (completed, inProgress, failed) of
+                    (True,_,_) -> return $ NotAccepted "Already completed URL"
+                    (_,True,_) -> return $ NotAccepted "URL already in progress"
+                    (_,_,True) -> return $ NotAccepted "URL previously failed"
+                    _          -> do
+                        S.insert url (getUrlsInProgress crawlerState)
+                        writeQueue (getUrlQueue crawlerState) url
+                        return Accepted
+            return accepted
+        else return $ NotAccepted "URL wasn't acceptable"
+
     where
     checkAcceptable :: STM Bool
     checkAcceptable = do

@@ -21,8 +21,8 @@ handleMessages crawlerState workers (CommandMessage c) = handleCommand c >>= ret
         case canonicaliseByteString url of
             Nothing -> return . Failure $ "Couldn't canonicalise url: " ++ show url
             Just x -> do
-                processNextUrl crawlerState x
-                putStrLn "Added url to frontier"
+                accepted <- processNextUrl crawlerState x
+                print accepted
                 return Confirmation
 
     {- Remove a URL -}
