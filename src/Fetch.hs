@@ -9,6 +9,7 @@ import Control.Exception.Lifted     (try)
 import Control.Monad.Trans.Resource (ResourceT, runResourceT)
 import Data.ByteString.Char8        (ByteString)
 import Data.ByteString.Lazy.Char8   (toStrict)
+import qualified Data.ByteString    as BS
 import Data.Conduit                 (ResumableSource, ($$+-))
 import Data.Conduit.Binary          (sinkLbs)
 import Data.List                    (group)
@@ -32,8 +33,8 @@ getWithRedirects man url = do
             case mResponse of
                 Left l -> return (Left l, mRedirects)
                 Right response -> do
-                    lbs <- responseBody response $$+- sinkLbs
-                    return (Right (toStrict lbs), mRedirects)
+                    bs <- responseBody response $$+- (toStrict <$> sinkLbs)
+                    case BS.last bs of _ -> return (Right bs, mRedirects)
 
     -- Include the starting URL as a "redirect", in case a "/" was put on the end
     let redirects = catMaybes mRedirects ++ [url]

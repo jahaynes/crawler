@@ -24,7 +24,7 @@ data CrawlerState = CrawlerState {
     getUrlsFailed :: M.Map CanonicalUrl String
 }
 
-newtype CanonicalUrl = CanonicalUrl ByteString
+newtype CanonicalUrl = CanonicalUrl ByteString deriving Ord
 
 instance Eq CanonicalUrl where
     (CanonicalUrl a) == (CanonicalUrl b) = a == b

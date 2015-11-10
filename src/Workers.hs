@@ -5,6 +5,7 @@ import Control.Concurrent.STM               (STM, atomically)
 import Data.Time                            (UTCTime)
 import qualified STMContainers.Set  as S
 import qualified STMContainers.Map  as M
+import Types
 
 data Workers = Workers {
     getCrawlerThreads :: S.Set ThreadId,
@@ -14,7 +15,7 @@ data Workers = Workers {
     getParserThreadsToStop :: S.Set ThreadId,
 
     getActiveThreads :: M.Map ThreadId String,
-    getThreadClocks :: M.Map ThreadId UTCTime
+    getThreadClocks :: M.Map ThreadId (UTCTime, CanonicalUrl)
 }
 
 initialiseWorkers :: IO Workers
