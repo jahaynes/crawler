@@ -15,6 +15,7 @@ import Control.Concurrent.STM           (STM, atomically)
 import Control.Monad                    (replicateM_)
 import Data.ByteString.Char8            (ByteString, isInfixOf)
 import Data.Maybe                       (isJust)
+import Data.Time
 import Network.HTTP.Conduit             (newManager, tlsManagerSettings)
 import qualified STMContainers.Set as S
 import qualified STMContainers.Map as M
@@ -54,11 +55,13 @@ crawlUrls workers crawlerState threadId = do
 
         nextUrl <- atomically $ readQueue (getUrlQueue crawlerState)
 
+        resetThreadClock nextUrl
+
         (mBodyData, redirects) <- getWithRedirects man nextUrl
 
         case mBodyData of
             Left err -> do
-                putStrLn "Failed to download!"
+                putStrLn $ "Failed to download (thread " ++ show threadId ++ ")"
                 print err
                 atomically $ failedDownload nextUrl
             Right bodyData -> atomically $ successfulDownload nextUrl redirects bodyData
@@ -77,6 +80,8 @@ crawlUrls workers crawlerState threadId = do
         writeQueue (getParseQueue crawlerState) (redirects, bodyData)
         writeQueue (getStoreQueue crawlerState) (redirects, bodyData)
 
+    resetThreadClock nextUrl = getCurrentTime >>= \c -> atomically . M.insert (c, nextUrl) threadId . getThreadClocks $ workers
+        
 processNextUrl :: CrawlerState -> CanonicalUrl -> IO Accepted
 processNextUrl crawlerState url@(CanonicalUrl url') = do
     isAcceptable <- atomically checkAcceptable

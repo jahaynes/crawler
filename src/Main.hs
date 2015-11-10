@@ -7,11 +7,16 @@ import CountedQueue
 import Crawl
 import Parse
 import MessageHandler   (handleMessages)
+import Shared
 import Settings
 import Types
 import Output
 import Errors
 import Workers
+
+import Data.Ord (comparing)
+import Data.List (partition, sortBy)
+import Data.Time
 
 import Control.Applicative              ((<$>))
 import Control.Concurrent               (threadDelay)
@@ -50,10 +55,16 @@ main = do
 
     forkWorker workers "Message Handler" $ receiveMessagesWith (handleMessages crawlerState workers)
 
-    go crawlerState 
+    go crawlerState workers
     where
-    go crawlerState = do
+    go crawlerState workers = do
         halted <- (== Halted) <$> (atomically . readTVar $ getCrawlerStatus crawlerState)
         if halted
             then return ()
-            else threadDelay 1000000 >> go crawlerState
+            else do
+                clockList <- atomically . mapAsList . getThreadClocks $ workers
+                time <- getCurrentTime
+                putStrLn "\n"
+                mapM_ (\(a,(t,u)) -> putStrLn $ show a ++ "\t" ++ show (diffUTCTime time t) ++ "\t" ++ show u ) . sortBy (comparing snd) $ clockList
+                threadDelay 1000000
+                go crawlerState workers
