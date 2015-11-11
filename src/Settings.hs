@@ -15,3 +15,6 @@ proxySettings = id -- addProxy "127.0.0.1" 8085
 
 maxRedirects :: Int
 maxRedirects = 10
+
+maxContentLength :: Int
+maxContentLength = 2 * 1024 * 1024

@@ -7,20 +7,28 @@ import Control.Applicative          ((<$>))
 import Control.Monad                (when)
 import Control.Exception.Lifted     (try)
 import Control.Monad.Trans.Resource (ResourceT, runResourceT)
-import Data.ByteString.Char8        (ByteString)
+import Data.ByteString.Char8        (ByteString, unpack)
 import Data.ByteString.Lazy.Char8   (toStrict)
 import qualified Data.ByteString    as BS
-import Data.Conduit                 (ResumableSource, ($$+-))
+import Data.Conduit                 (ResumableSource, ($$+-), ($=))
 import Data.Conduit.Binary          (sinkLbs)
+import qualified Data.Conduit.List  as CL (map)
 import Data.List                    (group)
 import Data.Maybe                   (catMaybes)
 import Network.HTTP.Conduit
 import Network.HTTP.Types.Status    (statusCode)
+import Control.Monad.IO.Class       (liftIO)
+import Network.HTTP.Types.Header
+import Safe                         (readMay)
 
 requestWithoutRedirects :: CanonicalUrl -> IO Request 
 requestWithoutRedirects url = do
     req <- proxySettings <$> parseUrl (show url)
     return $ req {redirectCount=0}
+
+data DownloadAmount = TooBig
+                    | SmallEnough
+                    | Unknown
 
 getWithRedirects :: Manager -> CanonicalUrl -> IO (Either String ByteString, [CanonicalUrl])
 getWithRedirects man url = do
@@ -33,8 +41,24 @@ getWithRedirects man url = do
             case mResponse of
                 Left l -> return (Left l, mRedirects)
                 Right response -> do
-                    bs <- responseBody response $$+- (toStrict <$> sinkLbs)
-                    case BS.last bs of _ -> return (Right bs, mRedirects)
+
+                    let downloadAmount = 
+                            case getContentLength response of
+                                Nothing -> Unknown
+                                Just x | x <= maxContentLength -> SmallEnough
+                                       | x > maxContentLength -> TooBig
+
+                    case downloadAmount of
+
+                        TooBig -> return (Left "Too big", mRedirects)
+
+                        SmallEnough -> do
+                            bs <- responseBody response $$+- (toStrict <$> sinkLbs)
+                            case BS.last bs of _ -> return (Right bs, mRedirects)
+
+                        Unknown -> do
+                            bs <- responseBody response $$+- CL.map (BS.take maxContentLength) $= (toStrict <$> sinkLbs)
+                            case BS.last bs of _ -> return (Right bs, mRedirects)
 
     -- Include the starting URL as a "redirect", in case a "/" was put on the end
     let redirects = catMaybes mRedirects ++ [url]
@@ -46,6 +70,12 @@ getWithRedirects man url = do
     where
     dedupe :: [CanonicalUrl] -> [CanonicalUrl]
     dedupe = map head . group
+
+    getContentLength :: Response a -> Maybe Int
+    getContentLength response =
+        case filter (\(k,_) -> k == hContentLength) . responseHeaders $ response of
+            [] -> Nothing
+            ((_,x):_) -> readMay $ unpack x
 
     followRedirects :: Int -> 
                        Request ->
@@ -62,4 +92,4 @@ getWithRedirects man url = do
                 case mRedirReq of
                     Just redirReq -> followRedirects (n-1) redirReq (canonicaliseRequest redirReq:redirs)
                     Nothing -> return (Left ("Code: " ++ show code), redirs)
-            Left e -> return (Left (show e), redirs)
+            Left e -> return (Left ("followRedirects: " ++ show e), redirs)
