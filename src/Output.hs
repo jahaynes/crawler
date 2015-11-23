@@ -37,7 +37,7 @@ storePages crawlerState = do
                 appendFile "stored.log" (show redirectChain ++ "\n")
                 go hm' Now
 
-    checkHalt = (== HaltingStatus) <$> (readTVar $ getCrawlerStatus crawlerState)
+    checkHalt = (== HaltingStatus) <$> readTVar (getCrawlerStatus crawlerState)
 
     flushOutput hm = do
         HM.close hm

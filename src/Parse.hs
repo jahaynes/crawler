@@ -30,7 +30,7 @@ setNumParsers crawlerState workers desiredNum = do
         currentNumParsers <- getActiveParserCount
         case desiredNum - currentNumParsers of
             0 -> return 0
-            threadDelta -> do
+            threadDelta ->
                 if threadDelta > 0
                     then return threadDelta
                     else do

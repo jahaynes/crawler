@@ -27,7 +27,7 @@ setNumCrawlers crawlerState workers desiredNum = do
         currentNumCrawlers <- getActiveCrawlerCount
         case desiredNum - currentNumCrawlers of
             0 -> return 0
-            threadDelta -> do
+            threadDelta ->
                 if threadDelta > 0
                     then return threadDelta
                     else do
@@ -105,6 +105,5 @@ processNextUrl crawlerState url@(CanonicalUrl url') = do
 
     where
     checkAcceptable :: STM Bool
-    checkAcceptable = do
-        ps <- setAsList (getUrlPatterns crawlerState)
-        return . any (\p -> p `isInfixOf` url') $ ps
+    checkAcceptable = any (`isInfixOf` url') <$> setAsList (getUrlPatterns crawlerState)
+

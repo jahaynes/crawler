@@ -15,12 +15,13 @@ import Errors
 import Workers
 
 import Data.Ord (comparing)
-import Data.List (partition, sortBy)
+import Data.List (sortBy)
 import Data.Time
 
 import Control.Applicative              ((<$>))
 import Control.Concurrent               (threadDelay)
 import Control.Concurrent.STM           (atomically, newTVarIO, readTVar)
+import Control.Monad                    (forever, unless)
 
 import qualified STMContainers.Set as S
 import qualified STMContainers.Map as M
@@ -55,16 +56,12 @@ main = do
 
     forkWorker workers "Message Handler" $ receiveMessagesWith (handleMessages crawlerState workers)
 
-    go crawlerState workers
-    where
-    go crawlerState workers = do
+    forever $ do
         halted <- (== Halted) <$> (atomically . readTVar $ getCrawlerStatus crawlerState)
-        if halted
-            then return ()
-            else do
-                clockList <- atomically . mapAsList . getThreadClocks $ workers
-                time <- getCurrentTime
-                putStrLn "\n"
-                mapM_ (\(a,(t,u)) -> putStrLn $ show a ++ "\t" ++ show (diffUTCTime time t) ++ "\t" ++ show u ) . sortBy (comparing snd) $ clockList
-                threadDelay 1000000
-                go crawlerState workers
+        unless halted $ do
+            clockList <- atomically . mapAsList . getThreadClocks $ workers
+            time <- getCurrentTime
+            putStrLn "\n"
+            mapM_ (\(a,(t,u)) -> putStrLn $ show a ++ "\t" ++ show (diffUTCTime time t) ++ "\t" ++ show u ) . sortBy (comparing snd) $ clockList
+            threadDelay 1000000
+

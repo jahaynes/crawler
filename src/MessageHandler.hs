@@ -10,12 +10,13 @@ import Urls
 import Workers
 
 import Control.Concurrent.STM           (atomically, readTVar, modifyTVar')
+import Control.Monad					(liftM)
 import GHC.Conc                         (threadStatus)
 
 import qualified STMContainers.Set as S
 
 handleMessages :: CrawlerState -> Workers -> Message -> IO Message
-handleMessages crawlerState workers (CommandMessage c) = handleCommand c >>= return . AnswerMessage
+handleMessages crawlerState workers (CommandMessage c) = liftM AnswerMessage . handleCommand $ c
     where
 
     {- Add a URL -}
@@ -75,7 +76,7 @@ handleMessages crawlerState workers (CommandMessage c) = handleCommand c >>= ret
                     return True
         if willHalt
             then do
-                putStrLn $ "Halting..."
+                putStrLn "Halting..."
                 setNumCrawlers crawlerState workers 0
                 setNumParsers crawlerState workers 0
                 return Confirmation
@@ -84,24 +85,27 @@ handleMessages crawlerState workers (CommandMessage c) = handleCommand c >>= ret
                 putStrLn msg
                 return $ Failure msg
 
-handleMessages crawlerState workers (QuestionMessage q) = handleQuestion q >>= return . AnswerMessage
+handleMessages crawlerState workers (QuestionMessage q) = liftM AnswerMessage . handleQuestion $ q
     where
 
     {- Ask the size of the URL Queue -}
     handleQuestion (GetQueueSize queue) =
         case queue of
-            UrlQueue -> return . QueueSize =<< (atomically . size . getUrlQueue $ crawlerState)
-            ParseQueue -> return . QueueSize =<< (atomically . size . getParseQueue $ crawlerState)
-            StoreQueue -> return . QueueSize =<< (atomically . size . getStoreQueue $ crawlerState)
-            ErrorQueue -> return . QueueSize =<< (atomically . size . getLogQueue $ crawlerState)
+            UrlQueue -> returnQueueSize . getUrlQueue $ crawlerState
+            ParseQueue -> returnQueueSize . getParseQueue $ crawlerState
+            StoreQueue -> returnQueueSize . getStoreQueue $ crawlerState
+            ErrorQueue -> returnQueueSize . getLogQueue $ crawlerState
+
+	where
+	returnQueueSize = liftM QueueSize . atomically . size
 
     {- Ask for the Crawler's current Status -}
-    handleQuestion GetCrawlerStatus = return . CrawlerStatus =<< (atomically . readTVar $ getCrawlerStatus crawlerState)
+    handleQuestion GetCrawlerStatus = liftM CrawlerStatus . atomically . readTVar . getCrawlerStatus $ crawlerState
 
     {- Get the workers' statuses -}
     handleQuestion GetWorkerStatuses = do
         ls <- atomically $ mapAsList (getActiveThreads workers)
-        statuses <- mapM threadStatus (map fst ls)
+        statuses <- mapM (threadStatus . fst) ls
         let ns = zip (map snd ls) statuses
             ss = map (\(n,s) -> n ++ ": " ++ show s) ns
         return $ WorkerStatus ss
