@@ -12,8 +12,6 @@ import Data.ByteString (ByteString)
 import Data.Smashy.Types
 import qualified Data.Smashy.Map    as HM
 
-data Timing = Later | Now
-
 storePages :: CrawlerState -> IO ()
 storePages crawlerState = do
     hm <- HM.new (Disk "stored")
