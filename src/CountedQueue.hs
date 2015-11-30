@@ -7,7 +7,6 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 import qualified Control.Concurrent.STM.TQueue as Q
 import qualified Control.Concurrent.STM.TBQueue as BQ
 import qualified Control.Concurrent.STM.TVar as TV
-import Control.Concurrent               (threadDelay)
 
 import Data.Conduit
 
@@ -49,21 +48,6 @@ writeQueue (BoundedCountedQueue sz bq) val = BQ.writeTBQueue bq val >> TV.modify
 size :: CountedQueue a -> STM Int
 size (CountedQueue sz _) = TV.readTVar sz
 size (BoundedCountedQueue sz _) = TV.readTVar sz
-
-sourceQueueSleepy q = forever now
-
-    where
-    later = do
-        liftIO $ threadDelay 1000000
-        now
-
-    now = do
-        mv <- liftIO . atomically . tryReadQueue $ q
-        case mv of
-            Just v -> do
-                yield v
-                now
-            Nothing -> later
 
 sourceQueue :: MonadIO m => CountedQueue a -> Source m a
 sourceQueue q =

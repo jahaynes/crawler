@@ -42,7 +42,5 @@ type Reason = String
 
 data Accepted = Accepted | NotAccepted Reason deriving Show
 
-data Timing = Later | Now
-
 setAsList :: S.Set a -> STM [a]
 setAsList = toList . S.stream
