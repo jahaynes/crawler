@@ -65,7 +65,7 @@ sourceQueueSleepy q = forever now
                 now
             Nothing -> later
 
-sourceQueue :: (Show a, MonadIO m) => CountedQueue a -> Source m a
+sourceQueue :: MonadIO m => CountedQueue a -> Source m a
 sourceQueue q =
     forever $ do
         a <- liftIO . atomically . readQueue $ q
