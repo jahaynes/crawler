@@ -17,7 +17,6 @@ import Data.List                    (group)
 import Data.Maybe                   (catMaybes)
 import Network.HTTP.Conduit
 import Network.HTTP.Types.Status    (statusCode)
-import Control.Monad.IO.Class       (liftIO)
 import Network.HTTP.Types.Header
 import Safe                         (readMay)
 
@@ -46,7 +45,7 @@ getWithRedirects man url = do
                             case getContentLength response of
                                 Nothing -> Unknown
                                 Just x | x <= maxContentLength -> SmallEnough
-                                       | x > maxContentLength -> TooBig
+                                       | otherwise -> TooBig
 
                     case downloadAmount of
 

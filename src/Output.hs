@@ -1,44 +1,24 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Output where
 
-import Communication
-import CountedQueue                     (tryReadQueue)
+import CountedQueue                     (sourceQueue)
 import Types
 
-import Control.Applicative              ((<$>))
-import Control.Concurrent.STM           (atomically, readTVar, modifyTVar')
-import Control.Concurrent               (threadDelay)
-
-import Data.ByteString (ByteString)
-import Data.Smashy.Types
-import qualified Data.Smashy.Map    as HM
-
-data Timing = Later | Now
+import Control.Monad.Trans.Resource     (runResourceT)
+import Data.ByteString.Char8 as BS      (ByteString, intercalate, concat)
+import Data.Conduit
+import Data.Conduit.Binary
+import qualified Data.Conduit.List as CL
 
 storePages :: CrawlerState -> IO ()
-storePages crawlerState = do
-    hm <- HM.new (Disk "stored")
-    go hm Now
+storePages crawlerState =  runResourceT
+                        $  sourceQueue (getStoreQueue crawlerState)
+                        $$ CL.map (\(redirects, contents) -> map (\(CanonicalUrl url) -> url) redirects)
+                        =$ CL.map redirectsLine
+                        =$ sinkFile "stored.log"
 
     where
-    go :: HashMap ByteString ByteString -> Timing -> IO ()
-    go hm timing = do
-        halting <- atomically checkHalt
-        if halting
-            then flushOutput hm
-            else grab hm timing
+    redirectsLine :: [ByteString] -> ByteString
+    redirectsLine redirects = BS.concat [intercalate " <- " redirects, "\n"]
 
-    grab hm Later = threadDelay 1000000 >> go hm Now
-    grab hm Now = do
-        mVals <- atomically $ tryReadQueue (getStoreQueue crawlerState)
-        case mVals of
-            Nothing -> go hm Later
-            Just (redirectChain, content) -> do
-                hm' <- HM.storeOne hm ((\(CanonicalUrl url) -> url) (last redirectChain), content)
-                appendFile "stored.log" (show redirectChain ++ "\n")
-                go hm' Now
-
-    checkHalt = (== HaltingStatus) <$> readTVar (getCrawlerStatus crawlerState)
-
-    flushOutput hm = do
-        HM.close hm
-        atomically $ modifyTVar' (getCrawlerStatus crawlerState) (const Halted)

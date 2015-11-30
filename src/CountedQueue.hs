@@ -1,10 +1,14 @@
 module CountedQueue where
 
 import Control.Applicative ((<$>))
-import Control.Concurrent.STM (STM)
+import Control.Concurrent.STM (STM, atomically)
+import Control.Monad (forever)
+import Control.Monad.IO.Class (MonadIO, liftIO)
 import qualified Control.Concurrent.STM.TQueue as Q
 import qualified Control.Concurrent.STM.TBQueue as BQ
 import qualified Control.Concurrent.STM.TVar as TV
+
+import Data.Conduit
 
 data CountedQueue a = CountedQueue (TV.TVar Int) (Q.TQueue a) 
                     | BoundedCountedQueue (TV.TVar Int) (BQ.TBQueue a) 
@@ -44,3 +48,11 @@ writeQueue (BoundedCountedQueue sz bq) val = BQ.writeTBQueue bq val >> TV.modify
 size :: CountedQueue a -> STM Int
 size (CountedQueue sz _) = TV.readTVar sz
 size (BoundedCountedQueue sz _) = TV.readTVar sz
+
+sourceQueue :: MonadIO m => CountedQueue a -> Source m a
+sourceQueue q =
+    forever $ do
+        a <- liftIO . atomically . readQueue $ q
+        yield a
+
+
