@@ -7,9 +7,6 @@ import Network.HTTP.Conduit (Request, addProxy)
 numStartCrawlers :: Int
 numStartCrawlers = 20
 
-numStartParsers :: Int
-numStartParsers = 2
-
 proxySettings :: Request -> Request
 proxySettings = id -- addProxy "127.0.0.1" 8085
 
