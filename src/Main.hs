@@ -5,7 +5,6 @@ module Main where
 import Communication
 import CountedQueue
 import Crawl
-import Parse
 import MessageHandler   (handleMessages)
 import Shared
 import Settings
@@ -30,14 +29,13 @@ createCrawlerState :: IO CrawlerState
 createCrawlerState = do
     crawlerStatus <- newTVarIO RunningStatus
     urlQueue <- newQueueIO Unbounded
-    parseQueue <- newQueueIO Unbounded
     storeQueue <- newQueueIO (Bounded 32)
     loggingQueue <- newQueueIO (Bounded 128)
     urlPatterns <- S.newIO
     urlsInProgress <- S.newIO
     urlsCompleted <- S.newIO
     urlsFailed <- M.newIO
-    return $ CrawlerState crawlerStatus urlQueue parseQueue storeQueue loggingQueue urlPatterns urlsInProgress urlsCompleted urlsFailed
+    return $ CrawlerState crawlerStatus urlQueue storeQueue loggingQueue urlPatterns urlsInProgress urlsCompleted urlsFailed
 
 main :: IO ()
 main = do
@@ -47,8 +45,6 @@ main = do
     workers <- initialiseWorkers
 
     setNumCrawlers crawlerState workers numStartCrawlers
-
-    setNumParsers crawlerState workers numStartParsers
 
     forkWorker workers "Storage" $ storePages crawlerState
 

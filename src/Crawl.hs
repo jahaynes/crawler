@@ -6,6 +6,7 @@ import CountedQueue
 import Fetch
 import Urls
 import Workers
+import Parse (parsePage)
 import Shared
 import Types
 
@@ -64,7 +65,14 @@ crawlUrls workers crawlerState threadId = do
                 putStrLn $ "Failed to download (thread " ++ show threadId ++ ")"
                 print err
                 atomically $ failedDownload nextUrl
-            Right bodyData -> atomically $ successfulDownload nextUrl redirects bodyData
+            Right bodyData -> do
+
+                {- Parse the page mid-crawl so we can change course and work
+                   with forms if need be -}
+                let (hrefErrors, nextHrefs) = parsePage redirects bodyData
+                mapM_ (atomically . writeQueue (getLogQueue crawlerState)) hrefErrors
+                atomically $ successfulDownload nextUrl redirects bodyData
+                mapM_ (processNextUrl crawlerState) nextHrefs
 
     where
     failedDownload :: CanonicalUrl -> STM ()
@@ -77,7 +85,6 @@ crawlUrls workers crawlerState threadId = do
     successfulDownload attemptedUrl redirects bodyData = do
         S.delete attemptedUrl (getUrlsInProgress crawlerState)
         mapM_ (\u -> S.insert u (getUrlsCompleted crawlerState)) redirects
-        writeQueue (getParseQueue crawlerState) (redirects, bodyData)
         writeQueue (getStoreQueue crawlerState) (redirects, bodyData)
 
     resetThreadClock nextUrl = getCurrentTime >>= \c -> atomically . M.insert (c, nextUrl) threadId . getThreadClocks $ workers

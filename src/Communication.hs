@@ -19,7 +19,6 @@ data Message = CommandMessage Command
 data Command = AddUrl ByteString
              | RemoveUrl ByteString 
              | SetNumCrawlers Int 
-             | SetNumParsers Int
              | SetUrlPatterns [ByteString]
              | Idle 
              | Halt
@@ -31,7 +30,6 @@ data Question = GetQueueSize QueueName
                 deriving (Generic, Show)
 
 data QueueName = UrlQueue
-               | ParseQueue
                | StoreQueue
                | ErrorQueue
                  deriving (Generic, Show, Read)

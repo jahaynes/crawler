@@ -101,11 +101,6 @@ mainPage = [shamlet|
                         <span id="urlsInQueue">
 
                 <div>
-                    Pages awaiting parsing:&nbsp;
-                    <i>
-                        <span id="parseQueue">
-                    
-                <div>
                     Pages awaiting storage:&nbsp;
                     <i>
                         <span id="storeQueue">

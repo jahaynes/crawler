@@ -15,7 +15,6 @@ type Crawled = ([CanonicalUrl], ByteString)
 data CrawlerState = CrawlerState {
     getCrawlerStatus :: TVar CrawlerStatus,
     getUrlQueue :: CountedQueue CanonicalUrl,  
-    getParseQueue :: CountedQueue Crawled,
     getStoreQueue :: CountedQueue Crawled,
     getLogQueue :: CountedQueue Loggable,
     getUrlPatterns :: S.Set ByteString,
@@ -41,6 +40,8 @@ data Loggable = LoggableWarning CanonicalUrl ByteString
 type Reason = String
 
 data Accepted = Accepted | NotAccepted Reason deriving Show
+
+data Form = Form
 
 setAsList :: S.Set a -> STM [a]
 setAsList = toList . S.stream

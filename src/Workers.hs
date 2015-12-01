@@ -11,9 +11,6 @@ data Workers = Workers {
     getCrawlerThreads :: S.Set ThreadId,
     getCrawlerThreadsToStop :: S.Set ThreadId,
 
-    getParserThreads :: S.Set ThreadId,
-    getParserThreadsToStop :: S.Set ThreadId,
-
     getActiveThreads :: M.Map ThreadId String,
     getThreadClocks :: M.Map ThreadId (UTCTime, CanonicalUrl)
 }
@@ -24,18 +21,12 @@ initialiseWorkers = do
     crawlerThreads <- S.newIO
     crawlerThreadsToStop <- S.newIO 
 
-    parserThreads <- S.newIO
-    parserThreadsToStop <- S.newIO 
-
     activeThreads <- M.newIO
     
     threadClocks <- M.newIO
 
     let workers = Workers { getCrawlerThreads = crawlerThreads,
                             getCrawlerThreadsToStop = crawlerThreadsToStop,
-
-                            getParserThreads = parserThreads,
-                            getParserThreadsToStop = parserThreadsToStop,
 
                             getActiveThreads = activeThreads,
                             getThreadClocks = threadClocks}

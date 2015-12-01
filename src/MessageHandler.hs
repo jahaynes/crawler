@@ -3,14 +3,13 @@ module MessageHandler where
 import Communication
 import CountedQueue
 import Crawl
-import Parse
 import Shared
 import Types
 import Urls
 import Workers
 
 import Control.Concurrent.STM           (atomically, readTVar, modifyTVar')
-import Control.Monad					(liftM)
+import Control.Monad                    (liftM)
 import GHC.Conc                         (threadStatus)
 
 import qualified STMContainers.Set as S
@@ -41,8 +40,6 @@ handleMessages crawlerState workers (CommandMessage c) = liftM AnswerMessage . h
         return Confirmation
 
     handleCommand (SetNumCrawlers _) = undefined
-
-    handleCommand (SetNumParsers _) = undefined
 
     {- Tell the crawler to idle -}
     handleCommand (Idle) = do
@@ -78,7 +75,6 @@ handleMessages crawlerState workers (CommandMessage c) = liftM AnswerMessage . h
             then do
                 putStrLn "Halting..."
                 setNumCrawlers crawlerState workers 0
-                setNumParsers crawlerState workers 0
                 return Confirmation
             else do
                 let msg = "Can't halt (was already halting)"
@@ -92,7 +88,6 @@ handleMessages crawlerState workers (QuestionMessage q) = liftM AnswerMessage . 
     handleQuestion (GetQueueSize queue) =
         case queue of
             UrlQueue -> returnQueueSize . getUrlQueue $ crawlerState
-            ParseQueue -> returnQueueSize . getParseQueue $ crawlerState
             StoreQueue -> returnQueueSize . getStoreQueue $ crawlerState
             ErrorQueue -> returnQueueSize . getLogQueue $ crawlerState
 
