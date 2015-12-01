@@ -65,7 +65,6 @@ getRawHrefs onUrl bs =
     let tags = filter (\(k,_) -> k == "href")
              . concatMap (\(TagOpen _ attribs) -> attribs)
              . filter (isTagOpenName "a") 
-             . canonicalizeTags
              . parseTags $ bs
     in map (derelativise . snd) tags
 
