@@ -42,7 +42,7 @@ handleMessages crawlerState workers (CommandMessage c) = liftM AnswerMessage . h
     handleCommand (SetNumCrawlers _) = undefined
 
     {- Tell the crawler to idle -}
-    handleCommand (Idle) = do
+    handleCommand Idle = do
 
         (willIdle, oldStatus) <- atomically $ do
             status <- readTVar (getCrawlerStatus crawlerState)
@@ -62,7 +62,7 @@ handleMessages crawlerState workers (CommandMessage c) = liftM AnswerMessage . h
                 return $ Failure msg
 
     {- Tell the crawler to halt -}
-    handleCommand (Halt) = do
+    handleCommand Halt = do
         
         willHalt <- atomically $ do
             status <- readTVar (getCrawlerStatus crawlerState)
