@@ -2,6 +2,7 @@
 
 module Parse where
 
+import Forms
 import Types
 import Urls
 
@@ -14,9 +15,17 @@ import Text.HTML.TagSoup.Fast   (parseTags)
 
 import Data.Either              (partitionEithers)
 
-parsePage :: [CanonicalUrl] -> ByteString -> ([Loggable], [CanonicalUrl])
-parsePage redirects contents =
-    partitionEithers . getRawHrefs (head redirects) $ contents
+--parsePage :: [CanonicalUrl] -> ByteString -> ([Loggable], [CanonicalUrl])
+parsePage redirects contents = do
+
+    {- TODO - strictly evalute tags up here
+    then pass those tags to getRawHrefs and getForms (simultaneously?) -}
+
+    let (loggables, urls) = partitionEithers . getRawHrefs (head redirects) $ contents
+
+    let forms = getForms contents
+
+    (loggables, urls, forms)
 
 getRawHrefs :: CanonicalUrl -> ByteString -> [Either Loggable CanonicalUrl]
 getRawHrefs onUrl bs =

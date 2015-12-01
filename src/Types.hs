@@ -41,7 +41,9 @@ type Reason = String
 
 data Accepted = Accepted | NotAccepted Reason deriving Show
 
-data Form = Form
+data Form = Form [(ByteString, ByteString)] [Input] deriving Show
+
+data Input = Input [(ByteString, ByteString)] deriving Show
 
 setAsList :: S.Set a -> STM [a]
 setAsList = toList . S.stream

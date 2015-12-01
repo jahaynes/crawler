@@ -55,9 +55,9 @@ main = do
     forever $ do
         halted <- (== Halted) <$> (atomically . readTVar $ getCrawlerStatus crawlerState)
         unless halted $ do
-            clockList <- atomically . mapAsList . getThreadClocks $ workers
+            {-clockList <- atomically . mapAsList . getThreadClocks $ workers
             time <- getCurrentTime
             putStrLn "\n"
-            mapM_ (\(a,(t,u)) -> putStrLn $ show a ++ "\t" ++ show (diffUTCTime time t) ++ "\t" ++ show u ) . sortBy (comparing snd) $ clockList
+            mapM_ (\(a,(t,u)) -> putStrLn $ show a ++ "\t" ++ show (diffUTCTime time t) ++ "\t" ++ show u ) . sortBy (comparing snd) $ clockList -}
             threadDelay 1000000
 

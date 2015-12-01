@@ -69,7 +69,11 @@ crawlUrls workers crawlerState threadId = do
 
                 {- Parse the page mid-crawl so we can change course and work
                    with forms if need be -}
-                let (hrefErrors, nextHrefs) = parsePage redirects bodyData
+
+                let (hrefErrors, nextHrefs, forms) = parsePage redirects bodyData
+
+                mapM_ print forms
+
                 mapM_ (atomically . writeQueue (getLogQueue crawlerState)) hrefErrors
                 atomically $ successfulDownload nextUrl redirects bodyData
                 mapM_ (processNextUrl crawlerState) nextHrefs
