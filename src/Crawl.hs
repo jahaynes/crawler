@@ -75,7 +75,7 @@ crawlUrls workers crawlerState threadId = do
 
                 let (hrefErrors, nextHrefs, forms) = parsePage redirects bodyData
 
-                mapM_ print forms
+                --mapM_ print forms
 
                 atomically $ shareCookies (responseCookies \\ preRequestCookies)
 
@@ -87,7 +87,7 @@ crawlUrls workers crawlerState threadId = do
     shareCookies :: [Cookie] -> STM ()
     shareCookies responseCookiesToshare =
         let cookiesToAdd = filter shareCookie responseCookiesToshare
-        in modifyTVar' (getCookieList crawlerState) (\x -> cookiesToAdd ++ x) 
+        in modifyTVar' (getCookieList crawlerState) (\x -> cookiesToAdd ++ x)
 
     failedDownload :: CanonicalUrl -> STM ()
     failedDownload attemptedUrl = do

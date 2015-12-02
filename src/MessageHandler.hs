@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module MessageHandler where
 
 import Communication
@@ -10,9 +12,13 @@ import Workers
 
 import Control.Concurrent.STM           (atomically, readTVar, modifyTVar')
 import Control.Monad                    (liftM)
+import Data.Function                    (on)
+import Data.List                        (groupBy)
 import GHC.Conc                         (threadStatus)
+import Network.HTTP.Conduit
 
-import qualified STMContainers.Set as S
+import qualified Data.ByteString.Char8      as C8
+import qualified STMContainers.Set          as S
 
 handleMessages :: CrawlerState -> Workers -> Message -> IO Message
 handleMessages crawlerState workers (CommandMessage c) = liftM AnswerMessage . handleCommand $ c
@@ -91,8 +97,8 @@ handleMessages crawlerState workers (QuestionMessage q) = liftM AnswerMessage . 
             StoreQueue -> returnQueueSize . getStoreQueue $ crawlerState
             ErrorQueue -> returnQueueSize . getLogQueue $ crawlerState
 
-	where
-	returnQueueSize = liftM QueueSize . atomically . size
+        where
+        returnQueueSize = liftM QueueSize . atomically . size
 
     {- Ask for the Crawler's current Status -}
     handleQuestion GetCrawlerStatus = liftM CrawlerStatus . atomically . readTVar . getCrawlerStatus $ crawlerState
@@ -107,8 +113,12 @@ handleMessages crawlerState workers (QuestionMessage q) = liftM AnswerMessage . 
 
     {- Get a report of the shared cookies -}
     handleQuestion GetCookieReport = do
-        cs <- atomically . readTVar . getCookieList $ crawlerState
+        cookies <- atomically . readTVar . getCookieList $ crawlerState
 
-        return $ CookieReport
+        --let byDomain = groupBy ((==) `on` cookie_domain) cookies
+
+        let rendered = map (\c -> C8.concat [cookie_name c, ": ", cookie_value c, "<br/>"]) cookies
+
+        return $ CookieReport (map C8.unpack rendered)
 
 handleMessages _ _ (AnswerMessage _) = error "Shouldn't have received AnswerMessage"

@@ -40,7 +40,7 @@ data Answer = Confirmation
             | QueueSize Int
             | CrawlerStatus CrawlerStatus
             | WorkerStatus [String]
-            | CookieReport
+            | CookieReport [String]
               deriving (Generic, Show)
 
 data CrawlerStatus = RunningStatus | IdleStatus | HaltingStatus | Halted deriving (Generic, Eq, Show)
