@@ -105,4 +105,10 @@ handleMessages crawlerState workers (QuestionMessage q) = liftM AnswerMessage . 
             ss = map (\(n,s) -> n ++ ": " ++ show s) ns
         return $ WorkerStatus ss
 
+    {- Get a report of the shared cookies -}
+    handleQuestion GetCookieReport = do
+        cs <- atomically . readTVar . getCookieList $ crawlerState
+
+        return $ CookieReport
+
 handleMessages _ _ (AnswerMessage _) = error "Shouldn't have received AnswerMessage"

@@ -25,6 +25,9 @@ main = do
     getElementById "workerStatuses" >>= \workerStatuses ->
         repeatTask 300 $ ajax GET (T.pack "/workerStatuses") empty $ setInnerHTML workerStatuses
 
+    getElementById "cookieReport" >>= \cookieReport ->
+        repeatTask 300 $ ajax GET (T.pack "/cookieReport") empty $ setInnerHTML cookieReport
+
     getElementById "addUrl" >>= \btnAdd ->
         addEventListener btnAdd "onclick" $ \e -> do
             preventDefault e
