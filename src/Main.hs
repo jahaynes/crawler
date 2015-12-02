@@ -31,11 +31,12 @@ createCrawlerState = do
     urlQueue <- newQueueIO Unbounded
     storeQueue <- newQueueIO (Bounded 32)
     loggingQueue <- newQueueIO (Bounded 128)
+    cookieList <- newTVarIO []
     urlPatterns <- S.newIO
     urlsInProgress <- S.newIO
     urlsCompleted <- S.newIO
     urlsFailed <- M.newIO
-    return $ CrawlerState crawlerStatus urlQueue storeQueue loggingQueue urlPatterns urlsInProgress urlsCompleted urlsFailed
+    return $ CrawlerState crawlerStatus urlQueue storeQueue loggingQueue cookieList urlPatterns urlsInProgress urlsCompleted urlsFailed
 
 main :: IO ()
 main = do

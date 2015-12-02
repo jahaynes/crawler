@@ -9,6 +9,7 @@ import Control.Concurrent.STM           (STM, TVar)
 import qualified STMContainers.Set as S
 import qualified STMContainers.Map as M
 import ListT                            (toList)
+import Network.HTTP.Conduit (Cookie)
 
 type Crawled = ([CanonicalUrl], ByteString)
 
@@ -17,6 +18,7 @@ data CrawlerState = CrawlerState {
     getUrlQueue :: CountedQueue CanonicalUrl,  
     getStoreQueue :: CountedQueue Crawled,
     getLogQueue :: CountedQueue Loggable,
+    getCookieList :: TVar [Cookie],
     getUrlPatterns :: S.Set ByteString,
     getUrlsInProgress :: S.Set CanonicalUrl,
     getUrlsCompleted :: S.Set CanonicalUrl,
