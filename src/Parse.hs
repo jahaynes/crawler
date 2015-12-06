@@ -15,15 +15,17 @@ import Text.HTML.TagSoup.Fast   (parseTags)
 
 import Data.Either              (partitionEithers)
 
---parsePage :: [CanonicalUrl] -> ByteString -> ([Loggable], [CanonicalUrl])
+parsePage :: [CanonicalUrl] -> ByteString -> ([Loggable], [CanonicalUrl], [Form])
 parsePage redirects contents = do
 
     {- TODO - strictly evalute tags up here
     then pass those tags to getRawHrefs and getForms (simultaneously?) -}
 
-    let (loggables, urls) = partitionEithers . getRawHrefs (head redirects) $ contents
+    let onUrl = head redirects
 
-    let forms = getForms contents
+        (loggables, urls) = partitionEithers . getRawHrefs onUrl $ contents
+
+        forms = getForms onUrl contents
 
     (loggables, urls, forms)
 

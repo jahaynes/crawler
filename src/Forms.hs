@@ -2,19 +2,30 @@
 
 module Forms where
 
-import Types                    (Form (..), Input (..))
+import Types
 import Data.ByteString          (ByteString)
-import Text.HTML.TagSoup        (Attribute, Tag (TagOpen), isTagOpenName, isTagCloseName, sections)
+import Text.HTML.TagSoup        hiding (parseTags)
 import Text.HTML.TagSoup.Fast   (parseTags)
 
-getForms :: ByteString -> [Form]
-getForms = map asForm . isolateForms . parseTags
+getForms :: CanonicalUrl -> ByteString -> [Form]
+getForms onUrl = map asForm . isolateForms . parseTags
 
     where
     asForm :: [Tag ByteString] -> Form
-    asForm tags = Form attributes inputs
+    asForm tags = Form (Action method action) inputs
 
         where
+        --Todo derelativise here?
+        action :: RelativeUrl
+        action = RelativeUrl $ case filter (\(k,_) -> k == "action") attributes of
+                                   ((_,urlStub):_) -> urlStub
+                                   [] -> ""
+
+        method :: Method
+        method = case filter (\(k,_) -> k == "method") attributes of
+                     ((_,"post"):_) -> Post
+                     _ -> Get
+
         attributes :: [Attribute ByteString]
         attributes = (\ (TagOpen _ attrs : _) -> attrs) tags
 

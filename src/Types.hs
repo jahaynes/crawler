@@ -43,9 +43,15 @@ type Reason = String
 
 data Accepted = Accepted | NotAccepted Reason deriving Show
 
-data Form = Form [(ByteString, ByteString)] [Input] deriving Show
+data Form = Form Action [Input] deriving Show
+
+data Action = Action Method RelativeUrl deriving Show
+
+data Method = Get | Post deriving Show
 
 data Input = Input [(ByteString, ByteString)] deriving Show
+
+newtype RelativeUrl = RelativeUrl ByteString deriving Show
 
 setAsList :: S.Set a -> STM [a]
 setAsList = toList . S.stream
