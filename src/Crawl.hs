@@ -75,7 +75,9 @@ crawlUrls workers crawlerState threadId = do
 
                 let (hrefErrors, nextHrefs, forms) = parsePage redirects bodyData
 
-                --mapM_ print forms
+                unless (null forms) $ do
+                    let form@(Form (Action method (RelativeUrl url)) inputs) = head forms
+                    print form
 
                 atomically $ shareCookies (responseCookies \\ preRequestCookies)
 

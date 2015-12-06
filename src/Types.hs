@@ -10,6 +10,7 @@ import qualified STMContainers.Set as S
 import qualified STMContainers.Map as M
 import ListT                            (toList)
 import Network.HTTP.Conduit (Cookie)
+import Network.HTTP.Types (Method)
 
 type Crawled = ([CanonicalUrl], ByteString)
 
@@ -46,8 +47,6 @@ data Accepted = Accepted | NotAccepted Reason deriving Show
 data Form = Form Action [Input] deriving Show
 
 data Action = Action Method RelativeUrl deriving Show
-
-data Method = Get | Post deriving Show
 
 data Input = Input [(ByteString, ByteString)] deriving Show
 

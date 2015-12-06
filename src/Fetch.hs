@@ -24,13 +24,19 @@ import Safe                         (readMay)
 requestWithoutRedirects :: [Cookie] -> CanonicalUrl -> IO Request 
 requestWithoutRedirects requestCookies url = do
     req <- proxySettings <$> parseUrl (show url)
-    return $ req {redirectCount=0} {cookieJar=Just (createCookieJar requestCookies)}
+    return $ req {
+                  redirectCount = 0,
+                  cookieJar = Just (createCookieJar requestCookies)
+                 }
 
 data DownloadAmount = TooBig
                     | SmallEnough
                     | Unknown
 
-getWithRedirects :: Manager -> [Cookie] -> CanonicalUrl -> IO (Either String (ByteString, [Cookie]), [CanonicalUrl])
+getWithRedirects :: Manager
+                 -> [Cookie]
+                 -> CanonicalUrl
+                 -> IO (Either String (ByteString, [Cookie]), [CanonicalUrl])
 getWithRedirects man requestCookies url = do
 
     req <- requestWithoutRedirects requestCookies url

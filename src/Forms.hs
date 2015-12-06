@@ -6,6 +6,7 @@ import Types
 import Data.ByteString          (ByteString)
 import Text.HTML.TagSoup        hiding (parseTags)
 import Text.HTML.TagSoup.Fast   (parseTags)
+import Network.HTTP.Types       (Method, methodGet)
 
 getForms :: CanonicalUrl -> ByteString -> [Form]
 getForms onUrl = map asForm . isolateForms . parseTags
@@ -15,16 +16,17 @@ getForms onUrl = map asForm . isolateForms . parseTags
     asForm tags = Form (Action method action) inputs
 
         where
-        --Todo derelativise here?
+        --TODO derelativise here?
         action :: RelativeUrl
         action = RelativeUrl $ case filter (\(k,_) -> k == "action") attributes of
                                    ((_,urlStub):_) -> urlStub
                                    [] -> ""
 
         method :: Method
+        --TODO case sensitivity
         method = case filter (\(k,_) -> k == "method") attributes of
-                     ((_,"post"):_) -> Post
-                     _ -> Get
+                     ((_,v):_) -> v
+                     _ -> methodGet
 
         attributes :: [Attribute ByteString]
         attributes = (\ (TagOpen _ attrs : _) -> attrs) tags
