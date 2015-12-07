@@ -8,6 +8,8 @@ import Text.HTML.TagSoup        hiding (parseTags)
 import Text.HTML.TagSoup.Fast   (parseTags)
 import Network.HTTP.Types       (Method, methodGet)
 
+--TODO -> some kind of form selector to choose forms
+
 getForms :: CanonicalUrl -> ByteString -> [Form]
 getForms onUrl = map asForm . isolateForms . parseTags
 

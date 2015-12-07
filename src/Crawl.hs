@@ -19,7 +19,7 @@ import Data.ByteString.Char8            (ByteString, isInfixOf)
 import Data.List                        ((\\))
 import Data.Maybe                       (isJust)
 import Data.Time
-import Network.HTTP.Conduit             (newManager, tlsManagerSettings, Cookie)
+import Network.HTTP.Conduit             (Manager, newManager, tlsManagerSettings, Cookie)
 import qualified STMContainers.Set as S
 import qualified STMContainers.Map as M
 
@@ -57,12 +57,17 @@ crawlUrls workers crawlerState threadId = do
     whileActive threadId (getCrawlerThreads workers) (getCrawlerThreadsToStop workers) $ do
 
         nextUrl <- atomically $ readQueue (getUrlQueue crawlerState)
-        preRequestCookies <- atomically . readTVar . getCookieList $ crawlerState
+        cookiesToSend <- atomically . readTVar . getCookieList $ crawlerState
 
         resetThreadClock nextUrl
 
-        (mBodyData, redirects) <- getWithRedirects man preRequestCookies nextUrl
+        (mBodyData, redirects) <- getWithRedirects man cookiesToSend (Right nextUrl)
 
+        processResponse (mBodyData, redirects) man nextUrl cookiesToSend
+
+    where
+    processResponse :: (Either String (ByteString, [Cookie]), [CanonicalUrl]) -> Manager -> CanonicalUrl -> [Cookie] -> IO ()
+    processResponse (mBodyData, redirects) man nextUrl cookiesSent =
         case mBodyData of
             Left err -> do
                 putStrLn $ "Failed to download (thread " ++ show threadId ++ ")"
@@ -70,22 +75,22 @@ crawlUrls workers crawlerState threadId = do
                 atomically $ failedDownload nextUrl
             Right (bodyData, responseCookies) -> do
 
-                {- Parse the page mid-crawl so we can change course and work
-                   with forms if need be -}
-
                 let (hrefErrors, nextHrefs, forms) = parsePage redirects bodyData
+                    finalUrl = head redirects
 
-                unless (null forms) $ do
-                    let form@(Form (Action method (RelativeUrl url)) inputs) = head forms
-                    print form
+                case forms of
+                    (form:tooManyForms) -> do
+                        unless (null tooManyForms) (atomically . writeQueue (getLogQueue crawlerState) $ LoggableWarning finalUrl "Too many forms on page!")
+                        let moreCookies = responseCookies ++ cookiesSent
+                        formResponse <- getWithRedirects man moreCookies (Left (finalUrl, form))
+                        processResponse formResponse man nextUrl moreCookies
 
-                atomically $ shareCookies (responseCookies \\ preRequestCookies)
+                    _ -> do
+                        atomically $ shareCookies (responseCookies \\ cookiesSent)
+                        mapM_ (atomically . writeQueue (getLogQueue crawlerState)) hrefErrors
+                        atomically $ successfulDownload nextUrl redirects bodyData
+                        mapM_ (processNextUrl crawlerState) nextHrefs  
 
-                mapM_ (atomically . writeQueue (getLogQueue crawlerState)) hrefErrors
-                atomically $ successfulDownload nextUrl redirects bodyData
-                mapM_ (processNextUrl crawlerState) nextHrefs
-
-    where
     shareCookies :: [Cookie] -> STM ()
     shareCookies responseCookiesToshare =
         let cookiesToAdd = filter shareCookie responseCookiesToshare

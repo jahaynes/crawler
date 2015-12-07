@@ -1,7 +1,10 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Fetch where
 
 import Urls
 import Settings
+import Types
 
 import Control.Applicative          ((<$>))
 import Control.Monad                (when)
@@ -20,6 +23,8 @@ import Network.HTTP.Conduit
 import Network.HTTP.Types.Status    (statusCode)
 import Network.HTTP.Types.Header
 import Safe                         (readMay)
+import Network.URI                  (isURI, parseAbsoluteURI, parseRelativeReference)
+import Network.HTTP.Types
 
 requestWithoutRedirects :: [Cookie] -> CanonicalUrl -> IO Request 
 requestWithoutRedirects requestCookies url = do
@@ -29,17 +34,43 @@ requestWithoutRedirects requestCookies url = do
                   cookieJar = Just (createCookieJar requestCookies)
                  }
 
+makeFormRequest :: [Cookie] -> (CanonicalUrl, Form) -> IO Request
+makeFormRequest requestCookies (CanonicalUrl baseUrl, form@(Form (Action method (RelativeUrl relUrl)) inputs)) = do
+
+    let params =
+            case relUrl of
+                "submit" -> [error "Fill in details"]
+                "agree" -> [error "Fill in details"]
+
+        target =
+            case (parseAbsoluteURI $ unpack baseUrl, parseRelativeReference $ unpack relUrl) of
+                (Just ou, Just u) -> ou `urlPlus` u
+
+        addParams =
+            case method of
+                methodPost -> urlEncodedBody params
+                _ -> setQueryString (map (\(k,v) -> (k,Just v)) params) 
+
+    req <- proxySettings <$> parseUrl (show target)
+
+    return $ addParams req {
+                            redirectCount = 0,
+                            cookieJar = Just (createCookieJar requestCookies)
+                           }
+
 data DownloadAmount = TooBig
                     | SmallEnough
                     | Unknown
 
 getWithRedirects :: Manager
                  -> [Cookie]
-                 -> CanonicalUrl
+                 -> Either (CanonicalUrl, Form) CanonicalUrl
                  -> IO (Either String (ByteString, [Cookie]), [CanonicalUrl])
-getWithRedirects man requestCookies url = do
+getWithRedirects man requestCookies formOrUrl = do
 
-    req <- requestWithoutRedirects requestCookies url
+    req <- case formOrUrl of
+               Left baseUrlAndForm -> makeFormRequest requestCookies baseUrlAndForm
+               Right url -> requestWithoutRedirects requestCookies url
 
     (mLbs, mRedirects) <-
         runResourceT $ do
@@ -69,7 +100,10 @@ getWithRedirects man requestCookies url = do
                             case BS.last bs of _ -> return (Right (bs, responseCookies), mRedirects)
 
     -- Include the starting URL as a "redirect", in case a "/" was put on the end
-    let redirects = catMaybes mRedirects ++ [url]
+    let startUrl = case formOrUrl of
+                       Left form -> [] --TODO idunno get the form's url?
+                       Right url -> [url]
+    let redirects = catMaybes mRedirects ++ startUrl
 
     when (length redirects < length mRedirects + 1) (putStrLn "Warning, not all redirects were parsed!")
 
