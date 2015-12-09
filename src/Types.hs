@@ -44,7 +44,9 @@ type Reason = String
 
 data Accepted = Accepted | NotAccepted Reason deriving Show
 
-data Form = Form Action [Input] deriving Show
+data Form = Form CanonicalUrl Action [Input] deriving Show
+
+data FormRequest = FormRequest Method CanonicalUrl [(ByteString, ByteString)]
 
 data Action = Action Method RelativeUrl deriving Show
 

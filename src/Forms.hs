@@ -15,7 +15,7 @@ getForms onUrl = map asForm . isolateForms . parseTags
 
     where
     asForm :: [Tag ByteString] -> Form
-    asForm tags = Form (Action method action) inputs
+    asForm tags = Form onUrl (Action method action) inputs
 
         where
         --TODO derelativise here?

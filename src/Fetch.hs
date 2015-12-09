@@ -6,9 +6,9 @@ import Urls
 import Settings
 import Types
 
+import Data.CaseInsensitive         (mk)
 import Control.Applicative          ((<$>))
 import Control.Monad                (when)
-import Control.Monad.IO.Class       (liftIO)
 import Control.Exception.Lifted     (try)
 import Control.Monad.Trans.Resource (ResourceT, runResourceT)
 import Data.ByteString.Char8        (ByteString, unpack)
@@ -23,35 +23,24 @@ import Network.HTTP.Conduit
 import Network.HTTP.Types.Status    (statusCode)
 import Network.HTTP.Types.Header
 import Safe                         (readMay)
-import Network.URI                  (isURI, parseAbsoluteURI, parseRelativeReference)
-import Network.HTTP.Types
+import Network.HTTP.Types           (methodPost)
 
 requestWithoutRedirects :: [Cookie] -> CanonicalUrl -> IO Request 
 requestWithoutRedirects requestCookies url = do
-    req <- proxySettings <$> parseUrl (show url)
+    req <- basicAuthSettings . proxySettings <$> parseUrl (show url)
     return $ req {
                   redirectCount = 0,
                   cookieJar = Just (createCookieJar requestCookies)
                  }
 
-makeFormRequest :: [Cookie] -> (CanonicalUrl, Form) -> IO Request
-makeFormRequest requestCookies (CanonicalUrl baseUrl, form@(Form (Action method (RelativeUrl relUrl)) inputs)) = do
+makeFormRequest :: [Cookie] -> FormRequest -> IO Request
+makeFormRequest requestCookies (FormRequest formMethod (CanonicalUrl target) params) = do
 
-    let params =
-            case relUrl of
-                "submit" -> [error "Fill in details"]
-                "agree" -> [error "Fill in details"]
+    let addParams = if mk formMethod == mk methodPost
+                        then urlEncodedBody params
+                        else setQueryString (map (\(k,v) -> (k,Just v)) params) 
 
-        target =
-            case (parseAbsoluteURI $ unpack baseUrl, parseRelativeReference $ unpack relUrl) of
-                (Just ou, Just u) -> ou `urlPlus` u
-
-        addParams =
-            case method of
-                methodPost -> urlEncodedBody params
-                _ -> setQueryString (map (\(k,v) -> (k,Just v)) params) 
-
-    req <- proxySettings <$> parseUrl (show target)
+    req <- basicAuthSettings . proxySettings <$> parseUrl (unpack target)
 
     return $ addParams req {
                             redirectCount = 0,
@@ -64,12 +53,12 @@ data DownloadAmount = TooBig
 
 getWithRedirects :: Manager
                  -> [Cookie]
-                 -> Either (CanonicalUrl, Form) CanonicalUrl
+                 -> Either FormRequest CanonicalUrl
                  -> IO (Either String (ByteString, [Cookie]), [CanonicalUrl])
 getWithRedirects man requestCookies formOrUrl = do
 
     req <- case formOrUrl of
-               Left baseUrlAndForm -> makeFormRequest requestCookies baseUrlAndForm
+               Left formOptions -> makeFormRequest requestCookies formOptions
                Right url -> requestWithoutRedirects requestCookies url
 
     (mLbs, mRedirects) <-
@@ -101,7 +90,7 @@ getWithRedirects man requestCookies formOrUrl = do
 
     -- Include the starting URL as a "redirect", in case a "/" was put on the end
     let startUrl = case formOrUrl of
-                       Left form -> [] --TODO idunno get the form's url?
+                       Left (FormRequest _ target _) -> [target]
                        Right url -> [url]
     let redirects = catMaybes mRedirects ++ startUrl
 

@@ -14,7 +14,7 @@ import Types
 import Control.Applicative              ((<$>), (<*>))
 import Control.Concurrent               (ThreadId, myThreadId)
 import Control.Concurrent.STM           (STM, atomically, readTVar, modifyTVar')
-import Control.Monad                    (replicateM_, unless)
+import Control.Monad                    (replicateM_)
 import Data.ByteString.Char8            (ByteString, isInfixOf)
 import Data.List                        ((\\))
 import Data.Maybe                       (isJust)
@@ -76,16 +76,16 @@ crawlUrls workers crawlerState threadId = do
             Right (bodyData, responseCookies) -> do
 
                 let (hrefErrors, nextHrefs, forms) = parsePage redirects bodyData
-                    finalUrl = head redirects
 
-                case forms of
-                    (form:tooManyForms) -> do
-                        unless (null tooManyForms) (atomically . writeQueue (getLogQueue crawlerState) $ LoggableWarning finalUrl "Too many forms on page!")
+                case selectFormOptions forms of
+
+                    Just formOptions -> do
+
                         let moreCookies = responseCookies ++ cookiesSent
-                        formResponse <- getWithRedirects man moreCookies (Left (finalUrl, form))
+                        formResponse <- getWithRedirects man moreCookies (Left formOptions)
                         processResponse formResponse man nextUrl moreCookies
 
-                    _ -> do
+                    Nothing -> do
                         atomically $ shareCookies (responseCookies \\ cookiesSent)
                         mapM_ (atomically . writeQueue (getLogQueue crawlerState)) hrefErrors
                         atomically $ successfulDownload nextUrl redirects bodyData
