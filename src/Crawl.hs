@@ -6,17 +6,20 @@ import CountedQueue
 import Fetch
 import Urls
 import Workers
+import Parse (parsePage)
+import Settings
 import Shared
 import Types
 
 import Control.Applicative              ((<$>), (<*>))
 import Control.Concurrent               (ThreadId, myThreadId)
-import Control.Concurrent.STM           (STM, atomically)
+import Control.Concurrent.STM           (STM, atomically, readTVar, modifyTVar')
 import Control.Monad                    (replicateM_)
 import Data.ByteString.Char8            (ByteString, isInfixOf)
+import Data.List                        ((\\))
 import Data.Maybe                       (isJust)
 import Data.Time
-import Network.HTTP.Conduit             (newManager, tlsManagerSettings)
+import Network.HTTP.Conduit             (Manager, newManager, tlsManagerSettings, Cookie)
 import qualified STMContainers.Set as S
 import qualified STMContainers.Map as M
 
@@ -54,19 +57,45 @@ crawlUrls workers crawlerState threadId = do
     whileActive threadId (getCrawlerThreads workers) (getCrawlerThreadsToStop workers) $ do
 
         nextUrl <- atomically $ readQueue (getUrlQueue crawlerState)
+        cookiesToSend <- atomically . readTVar . getCookieList $ crawlerState
 
         resetThreadClock nextUrl
 
-        (mBodyData, redirects) <- getWithRedirects man nextUrl
+        (mBodyData, redirects) <- getWithRedirects man cookiesToSend (Right nextUrl)
 
+        processResponse (mBodyData, redirects) man nextUrl cookiesToSend
+
+    where
+    processResponse :: (Either String (ByteString, [Cookie]), [CanonicalUrl]) -> Manager -> CanonicalUrl -> [Cookie] -> IO ()
+    processResponse (mBodyData, redirects) man nextUrl cookiesSent =
         case mBodyData of
             Left err -> do
                 putStrLn $ "Failed to download (thread " ++ show threadId ++ ")"
                 print err
                 atomically $ failedDownload nextUrl
-            Right bodyData -> atomically $ successfulDownload nextUrl redirects bodyData
+            Right (bodyData, responseCookies) -> do
 
-    where
+                let (hrefErrors, nextHrefs, forms) = parsePage redirects bodyData
+
+                case selectFormOptions forms of
+
+                    Just formOptions -> do
+
+                        let moreCookies = responseCookies ++ cookiesSent
+                        formResponse <- getWithRedirects man moreCookies (Left formOptions)
+                        processResponse formResponse man nextUrl moreCookies
+
+                    Nothing -> do
+                        atomically $ shareCookies (responseCookies \\ cookiesSent)
+                        mapM_ (atomically . writeQueue (getLogQueue crawlerState)) hrefErrors
+                        atomically $ successfulDownload nextUrl redirects bodyData
+                        mapM_ (processNextUrl crawlerState) nextHrefs  
+
+    shareCookies :: [Cookie] -> STM ()
+    shareCookies responseCookiesToshare =
+        let cookiesToAdd = filter shareCookie responseCookiesToshare
+        in modifyTVar' (getCookieList crawlerState) (\x -> cookiesToAdd ++ x)
+
     failedDownload :: CanonicalUrl -> STM ()
     failedDownload attemptedUrl = do
         S.delete attemptedUrl (getUrlsInProgress crawlerState)
@@ -77,7 +106,6 @@ crawlUrls workers crawlerState threadId = do
     successfulDownload attemptedUrl redirects bodyData = do
         S.delete attemptedUrl (getUrlsInProgress crawlerState)
         mapM_ (\u -> S.insert u (getUrlsCompleted crawlerState)) redirects
-        writeQueue (getParseQueue crawlerState) (redirects, bodyData)
         writeQueue (getStoreQueue crawlerState) (redirects, bodyData)
 
     resetThreadClock nextUrl = getCurrentTime >>= \c -> atomically . M.insert (c, nextUrl) threadId . getThreadClocks $ workers

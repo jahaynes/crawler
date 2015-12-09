@@ -47,6 +47,10 @@ spockApp = do
         msg <- liftIO workerStatuses
         text . toStrict . T.pack . show $ msg
 
+    get "cookieReport" $ do
+        msg <- liftIO cookieReport
+        text . toStrict . T.pack . show $ msg
+
     post "idle" $ do
         msg <- liftIO idle
         text . toStrict . T.pack . show $ msg
@@ -73,6 +77,9 @@ crawlerStatus = sendAndGetReply $ QuestionMessage GetCrawlerStatus
 
 workerStatuses :: IO Message
 workerStatuses = sendAndGetReply $ QuestionMessage GetWorkerStatuses
+
+cookieReport :: IO Message
+cookieReport = sendAndGetReply $ QuestionMessage GetCookieReport
 
 idle :: IO Message
 idle = sendAndGetReply $ CommandMessage Idle
@@ -101,11 +108,6 @@ mainPage = [shamlet|
                         <span id="urlsInQueue">
 
                 <div>
-                    Pages awaiting parsing:&nbsp;
-                    <i>
-                        <span id="parseQueue">
-                    
-                <div>
                     Pages awaiting storage:&nbsp;
                     <i>
                         <span id="storeQueue">
@@ -133,6 +135,11 @@ mainPage = [shamlet|
                 <label for="workerStatuses">Worker Statuses:&nbsp;
                 <i>
                     <span id="workerStatuses">
+
+            <div>
+                <label for="cookieReport">Cookie Report:&nbsp;
+                <i>
+                    <span id="cookieReport">
 
             <script type="text/javascript" src="FrontEnd.js">
 |]

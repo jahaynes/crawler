@@ -5,7 +5,6 @@ module Main where
 import Communication
 import CountedQueue
 import Crawl
-import Parse
 import MessageHandler   (handleMessages)
 import Shared
 import Settings
@@ -30,14 +29,14 @@ createCrawlerState :: IO CrawlerState
 createCrawlerState = do
     crawlerStatus <- newTVarIO RunningStatus
     urlQueue <- newQueueIO Unbounded
-    parseQueue <- newQueueIO Unbounded
     storeQueue <- newQueueIO (Bounded 32)
     loggingQueue <- newQueueIO (Bounded 128)
+    cookieList <- newTVarIO []
     urlPatterns <- S.newIO
     urlsInProgress <- S.newIO
     urlsCompleted <- S.newIO
     urlsFailed <- M.newIO
-    return $ CrawlerState crawlerStatus urlQueue parseQueue storeQueue loggingQueue urlPatterns urlsInProgress urlsCompleted urlsFailed
+    return $ CrawlerState crawlerStatus urlQueue storeQueue loggingQueue cookieList urlPatterns urlsInProgress urlsCompleted urlsFailed
 
 main :: IO ()
 main = do
@@ -48,8 +47,6 @@ main = do
 
     setNumCrawlers crawlerState workers numStartCrawlers
 
-    setNumParsers crawlerState workers numStartParsers
-
     forkWorker workers "Storage" $ storePages crawlerState
 
     forkWorker workers "Logging" $ logErrors crawlerState
@@ -59,9 +56,9 @@ main = do
     forever $ do
         halted <- (== Halted) <$> (atomically . readTVar $ getCrawlerStatus crawlerState)
         unless halted $ do
-            clockList <- atomically . mapAsList . getThreadClocks $ workers
+            {-clockList <- atomically . mapAsList . getThreadClocks $ workers
             time <- getCurrentTime
             putStrLn "\n"
-            mapM_ (\(a,(t,u)) -> putStrLn $ show a ++ "\t" ++ show (diffUTCTime time t) ++ "\t" ++ show u ) . sortBy (comparing snd) $ clockList
+            mapM_ (\(a,(t,u)) -> putStrLn $ show a ++ "\t" ++ show (diffUTCTime time t) ++ "\t" ++ show u ) . sortBy (comparing snd) $ clockList -}
             threadDelay 1000000
 

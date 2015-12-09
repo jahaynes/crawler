@@ -16,9 +16,6 @@ main = do
     getElementById "urlsInQueue" >>= \urlsInQueue ->
         repeatTask 300 $ ajax GET (T.pack "/queueSize/UrlQueue") empty $ setInnerHTML urlsInQueue
 
-    getElementById "parseQueue" >>= \parseQueue ->
-        repeatTask 300 $ ajax GET (T.pack "/queueSize/ParseQueue") empty $ setInnerHTML parseQueue
-
     getElementById "storeQueue" >>= \storeQueue ->
         repeatTask 300 $ ajax GET (T.pack "/queueSize/StoreQueue") empty $ setInnerHTML storeQueue
 
@@ -27,6 +24,9 @@ main = do
 
     getElementById "workerStatuses" >>= \workerStatuses ->
         repeatTask 300 $ ajax GET (T.pack "/workerStatuses") empty $ setInnerHTML workerStatuses
+
+    getElementById "cookieReport" >>= \cookieReport ->
+        repeatTask 300 $ ajax GET (T.pack "/cookieReport") empty $ setInnerHTML cookieReport
 
     getElementById "addUrl" >>= \btnAdd ->
         addEventListener btnAdd "onclick" $ \e -> do

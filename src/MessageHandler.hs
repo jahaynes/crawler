@@ -1,19 +1,24 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module MessageHandler where
 
 import Communication
 import CountedQueue
 import Crawl
-import Parse
 import Shared
 import Types
 import Urls
 import Workers
 
 import Control.Concurrent.STM           (atomically, readTVar, modifyTVar')
-import Control.Monad					(liftM)
+import Control.Monad                    (liftM)
+import Data.Function                    (on)
+import Data.List                        (groupBy)
 import GHC.Conc                         (threadStatus)
+import Network.HTTP.Conduit
 
-import qualified STMContainers.Set as S
+import qualified Data.ByteString.Char8      as C8
+import qualified STMContainers.Set          as S
 
 handleMessages :: CrawlerState -> Workers -> Message -> IO Message
 handleMessages crawlerState workers (CommandMessage c) = liftM AnswerMessage . handleCommand $ c
@@ -42,10 +47,8 @@ handleMessages crawlerState workers (CommandMessage c) = liftM AnswerMessage . h
 
     handleCommand (SetNumCrawlers _) = undefined
 
-    handleCommand (SetNumParsers _) = undefined
-
     {- Tell the crawler to idle -}
-    handleCommand (Idle) = do
+    handleCommand Idle = do
 
         (willIdle, oldStatus) <- atomically $ do
             status <- readTVar (getCrawlerStatus crawlerState)
@@ -65,7 +68,7 @@ handleMessages crawlerState workers (CommandMessage c) = liftM AnswerMessage . h
                 return $ Failure msg
 
     {- Tell the crawler to halt -}
-    handleCommand (Halt) = do
+    handleCommand Halt = do
         
         willHalt <- atomically $ do
             status <- readTVar (getCrawlerStatus crawlerState)
@@ -78,7 +81,6 @@ handleMessages crawlerState workers (CommandMessage c) = liftM AnswerMessage . h
             then do
                 putStrLn "Halting..."
                 setNumCrawlers crawlerState workers 0
-                setNumParsers crawlerState workers 0
                 return Confirmation
             else do
                 let msg = "Can't halt (was already halting)"
@@ -92,12 +94,11 @@ handleMessages crawlerState workers (QuestionMessage q) = liftM AnswerMessage . 
     handleQuestion (GetQueueSize queue) =
         case queue of
             UrlQueue -> returnQueueSize . getUrlQueue $ crawlerState
-            ParseQueue -> returnQueueSize . getParseQueue $ crawlerState
             StoreQueue -> returnQueueSize . getStoreQueue $ crawlerState
             ErrorQueue -> returnQueueSize . getLogQueue $ crawlerState
 
-	where
-	returnQueueSize = liftM QueueSize . atomically . size
+        where
+        returnQueueSize = liftM QueueSize . atomically . size
 
     {- Ask for the Crawler's current Status -}
     handleQuestion GetCrawlerStatus = liftM CrawlerStatus . atomically . readTVar . getCrawlerStatus $ crawlerState
@@ -109,5 +110,15 @@ handleMessages crawlerState workers (QuestionMessage q) = liftM AnswerMessage . 
         let ns = zip (map snd ls) statuses
             ss = map (\(n,s) -> n ++ ": " ++ show s) ns
         return $ WorkerStatus ss
+
+    {- Get a report of the shared cookies -}
+    handleQuestion GetCookieReport = do
+        cookies <- atomically . readTVar . getCookieList $ crawlerState
+
+        --let byDomain = groupBy ((==) `on` cookie_domain) cookies
+
+        let rendered = map (\c -> C8.concat [cookie_name c, ": ", cookie_value c, "<br/>"]) cookies
+
+        return $ CookieReport (map C8.unpack rendered)
 
 handleMessages _ _ (AnswerMessage _) = error "Shouldn't have received AnswerMessage"

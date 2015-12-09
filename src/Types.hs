@@ -9,15 +9,17 @@ import Control.Concurrent.STM           (STM, TVar)
 import qualified STMContainers.Set as S
 import qualified STMContainers.Map as M
 import ListT                            (toList)
+import Network.HTTP.Conduit (Cookie)
+import Network.HTTP.Types (Method)
 
 type Crawled = ([CanonicalUrl], ByteString)
 
 data CrawlerState = CrawlerState {
     getCrawlerStatus :: TVar CrawlerStatus,
     getUrlQueue :: CountedQueue CanonicalUrl,  
-    getParseQueue :: CountedQueue Crawled,
     getStoreQueue :: CountedQueue Crawled,
     getLogQueue :: CountedQueue Loggable,
+    getCookieList :: TVar [Cookie],
     getUrlPatterns :: S.Set ByteString,
     getUrlsInProgress :: S.Set CanonicalUrl,
     getUrlsCompleted :: S.Set CanonicalUrl,
@@ -41,6 +43,16 @@ data Loggable = LoggableWarning CanonicalUrl ByteString
 type Reason = String
 
 data Accepted = Accepted | NotAccepted Reason deriving Show
+
+data Form = Form CanonicalUrl Action [Input] deriving Show
+
+data FormRequest = FormRequest Method CanonicalUrl [(ByteString, ByteString)]
+
+data Action = Action Method RelativeUrl deriving Show
+
+data Input = Input [(ByteString, ByteString)] deriving Show
+
+newtype RelativeUrl = RelativeUrl ByteString deriving Show
 
 setAsList :: S.Set a -> STM [a]
 setAsList = toList . S.stream
