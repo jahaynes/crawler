@@ -9,7 +9,7 @@ import Urls
 import Data.Char                (isSpace)
 import Data.ByteString.Char8    (ByteString, unpack)
 import qualified Data.ByteString.Char8  as C8
-import Network.URI              (isURI, parseAbsoluteURI, parseRelativeReference)
+import Network.URI              (isURI, parseAbsoluteURI)
 import Text.HTML.TagSoup        (Tag (TagOpen), isTagOpenName)
 import Text.HTML.TagSoup.Fast   (parseTags)
 
@@ -48,14 +48,18 @@ getRawHrefs onUrl bs =
                 if isURI url
                     then
                         case canonicaliseByteString bsUrl of
-                            Nothing -> Left $ LoggableError onUrl $ C8.append "Could not parse URL: " bsUrl
+                            Nothing -> 
+                                let errMessage = C8.append "Could not parse URL: " bsUrl
+                                in Left (LoggableError onUrl errMessage)
                             Just canonicalised -> Right canonicalised
                     else do
                         let mOnUrl = parseAbsoluteURI (show onUrl)
-                            mUrl = parseRelativeReference url
+                            mUrl = parseRelative url
                         case (mOnUrl, mUrl) of
                             (Just ou, Just u) -> Right $ ou `urlPlus` u                      
-                            x -> Left . LoggableError onUrl . C8.append "Couldn't derelativise " . C8.pack . show $ x
+                            x ->
+                                let errMessage = C8.concat ["Couldn't derelativise ", C8.pack . show $ x, "right side was: ", bsUrl]
+                                in Left (LoggableError onUrl errMessage)
 
         where
         trim = C8.reverse . C8.dropWhile isSpace . C8.reverse . C8.dropWhile isSpace
