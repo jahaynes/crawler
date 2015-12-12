@@ -15,8 +15,9 @@ import Data.Conduit.Binary
 logErrors :: CrawlerState -> IO ()
 logErrors crawlerState =
     runResourceT $ sourceQueue (getLogQueue crawlerState)
-                 $$ CL.map toLogLine
-                 =$ sinkFile "errors.log"
+                 $= CL.filter isError
+                 $= CL.map toLogLine
+                 $$ sinkFile "errors.log"
 
     where
     toLogLine :: Loggable -> ByteString
@@ -27,3 +28,7 @@ logErrors crawlerState =
     toLogLine' url message = C8.concat ["While crawling: ", url, "\n",
                                         "found the following issue: \n",
                                         message, "\n"]
+
+    isError :: Loggable -> Bool
+    isError (LoggableError _ _) = True
+    isError                   _ = False
