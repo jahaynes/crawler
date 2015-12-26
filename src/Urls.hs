@@ -1,18 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Urls (CanonicalUrl,
-             canonicaliseRequest,
-             canonicaliseNetworkUri,
-             canonicaliseByteString,
-             canonicaliseString,
-             contains,
-             startsWith,
-             urlPlus,
-             parseRelative) where
+module Urls where
 
 import Types
 
 import Data.ByteString.Char8  as C8 (ByteString, pack, unpack, isInfixOf, isPrefixOf)
+import Data.ByteString.Search       (breakOn, breakAfter)
 import Data.List.Split              (splitWhen)
 import Network.URI
 import Network.HTTP.Client          (Request, getUri)
@@ -60,3 +53,6 @@ parseRelative relative =
                 [r,q] -> (r, Nothing)
                 _ -> (url, Nothing)
         | otherwise = (url, Nothing)
+
+getDomain :: CanonicalUrl -> Domain
+getDomain (CanonicalUrl u) = Domain . fst . breakOn "/" . snd . breakAfter "//" $ u
