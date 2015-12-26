@@ -46,19 +46,19 @@ readQueue threadId politeQueue = do
                             readQueue threadId politeQueue
         Nothing ->
             let loop = do
-                nextUrl <- Q.readTQueue (getSlowLane politeQueue)
-                let domain = getDomain nextUrl
-                mQueueForDomain <- M.lookup domain (getDomainMapping politeQueue)
-                case mQueueForDomain of
-                    Just queueForDomain -> do
-                        Q.writeTQueue queueForDomain nextUrl
-                        loop
-                    Nothing -> do
-                        M.insert domain threadId (getThreadMapping politeQueue)
-                        newQueue <- Q.newTQueue
-                        M.insert newQueue domain (getDomainMapping politeQueue)
-                        TV.modifyTVar' (getSize politeQueue) (\x -> x - 1)
-                        return nextUrl
+                    nextUrl <- Q.readTQueue (getSlowLane politeQueue)
+                    let domain = getDomain nextUrl
+                    mQueueForDomain <- M.lookup domain (getDomainMapping politeQueue)
+                    case mQueueForDomain of
+                        Just queueForDomain -> do
+                            Q.writeTQueue queueForDomain nextUrl
+                            loop
+                        Nothing -> do
+                            M.insert domain threadId (getThreadMapping politeQueue)
+                            newQueue <- Q.newTQueue
+                            M.insert newQueue domain (getDomainMapping politeQueue)
+                            TV.modifyTVar' (getSize politeQueue) (\x -> x - 1)
+                            return nextUrl
             in loop
                
 
