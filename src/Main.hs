@@ -6,6 +6,7 @@ import Communication
 import CountedQueue
 import Crawl
 import MessageHandler   (handleMessages)
+import qualified PoliteQueue    as PQ
 import Shared
 import Settings
 import Types
@@ -28,7 +29,7 @@ import qualified STMContainers.Map as M
 createCrawlerState :: IO CrawlerState
 createCrawlerState = do
     crawlerStatus <- newTVarIO RunningStatus
-    urlQueue <- newQueueIO Unbounded
+    urlQueue <- PQ.newIO
     storeQueue <- newQueueIO (Bounded 32)
     loggingQueue <- newQueueIO (Bounded 128)
     cookieList <- newTVarIO []

@@ -5,6 +5,7 @@ module MessageHandler where
 import Communication
 import CountedQueue
 import Crawl
+import qualified PoliteQueue    as PQ
 import Shared
 import Types
 import Urls
@@ -12,8 +13,6 @@ import Workers
 
 import Control.Concurrent.STM           (atomically, readTVar, modifyTVar')
 import Control.Monad                    (liftM)
-import Data.Function                    (on)
-import Data.List                        (groupBy)
 import GHC.Conc                         (threadStatus)
 import Network.HTTP.Conduit
 
@@ -93,7 +92,7 @@ handleMessages crawlerState workers (QuestionMessage q) = liftM AnswerMessage . 
     {- Ask the size of the URL Queue -}
     handleQuestion (GetQueueSize queue) =
         case queue of
-            UrlQueue -> returnQueueSize . getUrlQueue $ crawlerState
+            UrlQueue -> liftM QueueSize . atomically . PQ.size . getUrlQueue $ crawlerState
             StoreQueue -> returnQueueSize . getStoreQueue $ crawlerState
             ErrorQueue -> returnQueueSize . getLogQueue $ crawlerState
 

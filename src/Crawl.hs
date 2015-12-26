@@ -3,8 +3,8 @@
 module Crawl where
 
 import CountedQueue
+import qualified PoliteQueue as PQ
 import Fetch
-import Urls
 import Workers
 import Parse (parsePage)
 import Settings
@@ -56,7 +56,7 @@ crawlUrls workers crawlerState threadId = do
 
     whileActive threadId (getCrawlerThreads workers) (getCrawlerThreadsToStop workers) $ do
 
-        nextUrl <- atomically $ readQueue (getUrlQueue crawlerState)
+        nextUrl <- atomically $ PQ.readQueue threadId (getUrlQueue crawlerState)
         cookiesToSend <- atomically . readTVar . getCookieList $ crawlerState
 
         resetThreadClock nextUrl
@@ -106,7 +106,7 @@ crawlUrls workers crawlerState threadId = do
     successfulDownload attemptedUrl redirects bodyData = do
         S.delete attemptedUrl (getUrlsInProgress crawlerState)
         mapM_ (\u -> S.insert u (getUrlsCompleted crawlerState)) redirects
-        writeQueue (getStoreQueue crawlerState) (redirects, bodyData)
+        writeQueue (getStoreQueue crawlerState) (threadId, redirects, bodyData)
 
     resetThreadClock nextUrl = getCurrentTime >>= \c -> atomically . M.insert (c, nextUrl) threadId . getThreadClocks $ workers
         
@@ -126,7 +126,7 @@ processNextUrl crawlerState url@(CanonicalUrl url') = do
                     (_,_,True) -> return $ NotAccepted "URL previously failed"
                     _          -> do
                         S.insert url (getUrlsInProgress crawlerState)
-                        writeQueue (getUrlQueue crawlerState) url
+                        PQ.writeQueue url (getUrlQueue crawlerState)
                         return Accepted
             return accepted
         else return $ NotAccepted "URL wasn't acceptable"
