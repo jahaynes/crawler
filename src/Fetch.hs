@@ -104,7 +104,7 @@ getWithRedirects man requestCookies formOrUrl = do
 
     getContentLength :: Response a -> Maybe Int
     getContentLength response =
-        case filter (\(k,_) -> k == hContentLength) . responseHeaders $ response of
+        case filter (\(k,_) -> mk k == mk hContentLength) . responseHeaders $ response of
             [] -> Nothing
             ((_,x):_) -> readMay $ unpack x
 

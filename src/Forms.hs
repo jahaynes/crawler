@@ -4,6 +4,7 @@ module Forms where
 
 import Types
 import Data.ByteString          (ByteString)
+import Data.CaseInsensitive     (mk)
 import Text.HTML.TagSoup        hiding (parseTags)
 import Text.HTML.TagSoup.Fast   (parseTags)
 import Network.HTTP.Types       (Method, methodGet)
@@ -20,13 +21,12 @@ getForms onUrl = map asForm . isolateForms . parseTags
         where
         --TODO derelativise here?
         action :: RelativeUrl
-        action = RelativeUrl $ case filter (\(k,_) -> k == "action") attributes of
+        action = RelativeUrl $ case filter (\(k,_) -> mk k == mk "action") attributes of
                                    ((_,urlStub):_) -> urlStub
                                    [] -> ""
 
         method :: Method
-        --TODO case sensitivity
-        method = case filter (\(k,_) -> k == "method") attributes of
+        method = case filter (\(k,_) -> mk k == mk "method") attributes of
                      ((_,v):_) -> v
                      _ -> methodGet
 
