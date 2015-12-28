@@ -2,6 +2,8 @@ module PoliteQueue where
 
 import Urls (getDomain)
 import Types
+import Data.Maybe                   (fromJust)
+import Control.Applicative          ((<$>))
 import Control.Concurrent           (ThreadId)
 import qualified Control.Concurrent.STM.TQueue as Q
 import Control.Monad.STM    (STM)
@@ -19,35 +21,37 @@ newIO = do
 size :: PoliteQueue -> STM Int
 size = TV.readTVar . getSize
     
-writeQueue :: CanonicalUrl -> PoliteQueue -> STM ()
+writeQueue :: CanonicalUrl -> PoliteQueue -> STM Success
 writeQueue url politeQueue = do
     TV.modifyTVar' (getSize politeQueue) (+1)
-    mQueue <- M.lookup (getDomain url) (getDomainMapping politeQueue)
-    case mQueue of
-        Just queue -> Q.writeTQueue queue url
-        Nothing -> Q.writeTQueue (getSlowLane politeQueue) url
+    case getDomain url of
+        Nothing -> return . Failure $ "Could not get domain from url: " ++ show url
+        Just domain -> do
+            mQueue <- M.lookup domain (getDomainMapping politeQueue)
+            case mQueue of
+                Just queue -> Q.writeTQueue queue url
+                Nothing -> Q.writeTQueue (getSlowLane politeQueue) url
+            return Success
                    
 readQueue :: ThreadId -> PoliteQueue -> STM CanonicalUrl
 readQueue threadId politeQueue = do
     mMyDomain <- M.lookup threadId (getThreadMapping politeQueue)
     case mMyDomain of
         Just myDomain -> do
-            mMyQueue <- M.lookup myDomain (getDomainMapping politeQueue)
-            case mMyQueue of
-                Just myQueue -> do
-                    mUrl <- Q.tryReadTQueue myQueue
-                    case mUrl of
-                        Just url -> do
-                            TV.modifyTVar' (getSize politeQueue) (\x -> x - 1)
-                            return url
-                        Nothing -> do
-                            M.delete threadId (getThreadMapping politeQueue)
-                            M.delete myDomain (getDomainMapping politeQueue)
-                            readQueue threadId politeQueue
+            myQueue <- fromJust <$> M.lookup myDomain (getDomainMapping politeQueue)
+            mUrl <- Q.tryReadTQueue myQueue
+            case mUrl of
+                Just url -> do
+                    TV.modifyTVar' (getSize politeQueue) (\x -> x - 1)
+                    return url
+                Nothing -> do
+                    M.delete threadId (getThreadMapping politeQueue)
+                    M.delete myDomain (getDomainMapping politeQueue)
+                    readQueue threadId politeQueue
         Nothing ->
             let loop = do
                     nextUrl <- Q.readTQueue (getSlowLane politeQueue)
-                    let domain = getDomain nextUrl
+                    let domain = fromJust . getDomain $ nextUrl
                     mQueueForDomain <- M.lookup domain (getDomainMapping politeQueue)
                     case mQueueForDomain of
                         Just queueForDomain -> do

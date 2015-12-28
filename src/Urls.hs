@@ -4,7 +4,7 @@ module Urls where
 
 import Types
 
-import Data.ByteString.Char8  as C8 (ByteString, pack, unpack, isInfixOf, isPrefixOf)
+import Data.ByteString.Char8  as C8 (ByteString, pack, unpack, isInfixOf, isPrefixOf, null)
 import Data.ByteString.Search       (breakOn, breakAfter)
 import Data.List.Split              (splitWhen)
 import Network.URI
@@ -54,5 +54,7 @@ parseRelative relative =
                 _ -> (url, Nothing)
         | otherwise = (url, Nothing)
 
-getDomain :: CanonicalUrl -> Domain
-getDomain (CanonicalUrl u) = Domain . fst . breakOn "/" . snd . breakAfter "//" $ u
+getDomain :: CanonicalUrl -> Maybe Domain
+getDomain (CanonicalUrl u) =
+    let d = fst . breakOn "/" . snd . breakAfter "//" $ u
+    in if C8.null d then Nothing else Just (Domain d)

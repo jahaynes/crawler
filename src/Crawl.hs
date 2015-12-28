@@ -110,26 +110,24 @@ crawlUrls workers crawlerState threadId = do
 
     resetThreadClock nextUrl = getCurrentTime >>= \c -> atomically . M.insert (c, nextUrl) threadId . getThreadClocks $ workers
         
-processNextUrl :: CrawlerState -> CanonicalUrl -> IO Accepted
+processNextUrl :: CrawlerState -> CanonicalUrl -> IO Success
 processNextUrl crawlerState url@(CanonicalUrl url') = do
     isAcceptable <- atomically checkAcceptable
     if isAcceptable
-        then do
-            accepted <- atomically $ do
+        then
+            atomically $ do
                 completed <- S.lookup url (getUrlsCompleted crawlerState)
                 inProgress <- S.lookup url (getUrlsInProgress crawlerState)
                 failed <- isJust <$> M.lookup url (getUrlsFailed crawlerState)
 
                 case (completed, inProgress, failed) of
-                    (True,_,_) -> return $ NotAccepted "Already completed URL"
-                    (_,True,_) -> return $ NotAccepted "URL already in progress"
-                    (_,_,True) -> return $ NotAccepted "URL previously failed"
+                    (True,_,_) -> return $ Failure "Already completed URL"
+                    (_,True,_) -> return $ Failure "URL already in progress"
+                    (_,_,True) -> return $ Failure "URL previously failed"
                     _          -> do
                         S.insert url (getUrlsInProgress crawlerState)
                         PQ.writeQueue url (getUrlQueue crawlerState)
-                        return Accepted
-            return accepted
-        else return $ NotAccepted "URL wasn't acceptable"
+        else return $ Failure "URL wasn't acceptable"
 
     where
     checkAcceptable :: STM Bool

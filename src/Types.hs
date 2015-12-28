@@ -57,7 +57,7 @@ data Loggable = LoggableWarning CanonicalUrl ByteString
 
 type Reason = String
 
-data Accepted = Accepted | NotAccepted Reason deriving Show
+data Success = Success | Failure Reason deriving Show
 
 data Form = Form CanonicalUrl Action [Input] deriving Show
 

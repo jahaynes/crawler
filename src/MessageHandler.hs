@@ -26,7 +26,7 @@ handleMessages crawlerState workers (CommandMessage c) = liftM AnswerMessage . h
     {- Add a URL -}
     handleCommand (AddUrl url) =
         case canonicaliseByteString url of
-            Nothing -> return . Failure $ "Couldn't canonicalise url: " ++ show url
+            Nothing -> return . CouldntAnswer $ "Couldn't canonicalise url: " ++ show url
             Just x -> do
                 accepted <- processNextUrl crawlerState x
                 print accepted
@@ -64,7 +64,7 @@ handleMessages crawlerState workers (CommandMessage c) = liftM AnswerMessage . h
             else do
                 let msg = "Can't start idling from state " ++ show oldStatus
                 putStrLn msg
-                return $ Failure msg
+                return $ CouldntAnswer msg
 
     {- Tell the crawler to halt -}
     handleCommand Halt = do
@@ -84,7 +84,7 @@ handleMessages crawlerState workers (CommandMessage c) = liftM AnswerMessage . h
             else do
                 let msg = "Can't halt (was already halting)"
                 putStrLn msg
-                return $ Failure msg
+                return $ CouldntAnswer msg
 
 handleMessages crawlerState workers (QuestionMessage q) = liftM AnswerMessage . handleQuestion $ q
     where

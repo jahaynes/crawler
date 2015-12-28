@@ -36,7 +36,7 @@ data QueueName = UrlQueue
                  deriving (Generic, Show, Read)
 
 data Answer = Confirmation
-            | Failure String
+            | CouldntAnswer String
             | QueueSize Int
             | CrawlerStatus CrawlerStatus
             | WorkerStatus [String]
@@ -57,7 +57,7 @@ sendAndGetReply msg = catch sendAndGetReply' handleError
 
     where
     handleError :: IOException -> IO Message
-    handleError _ = return $ AnswerMessage (Failure "Monitor could not connect to Crawler")
+    handleError _ = return $ AnswerMessage (CouldntAnswer "Monitor could not connect to Crawler")
 
     sendAndGetReply' :: IO Message
     sendAndGetReply' =
@@ -68,10 +68,10 @@ sendAndGetReply msg = catch sendAndGetReply' handleError
                     a <- await
                     return $
                         case a of
-                            Nothing -> AnswerMessage (Failure "Got no reply back")
+                            Nothing -> AnswerMessage (CouldntAnswer "Got no reply back")
                             Just x ->
                                 case decode x of
-                                    Left e -> AnswerMessage (Failure $ "Couldn't decode: " ++ show e)
+                                    Left e -> AnswerMessage (CouldntAnswer $ "Couldn't decode: " ++ show e)
                                     Right r -> r
 
 receiveMessagesWith :: (Message -> IO Message) -> IO ()
