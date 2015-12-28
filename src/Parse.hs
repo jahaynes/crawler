@@ -7,6 +7,7 @@ import Types
 import Urls
 
 import Data.Char                (isSpace)
+import Data.CaseInsensitive     (mk)
 import Data.ByteString.Char8    (ByteString, unpack)
 import qualified Data.ByteString.Char8  as C8
 import Network.URI              (isURI, parseAbsoluteURI)
@@ -31,7 +32,7 @@ parsePage redirects contents = do
 
 getRawHrefs :: CanonicalUrl -> ByteString -> [Either Loggable CanonicalUrl]
 getRawHrefs onUrl bs =
-    let tags = filter (\(k,_) -> k == "href")
+    let tags = filter (\(k,_) -> mk k == mk "href")
              . concatMap (\(TagOpen _ attribs) -> attribs)
              . filter (isTagOpenName "a") 
              . parseTags $ bs
