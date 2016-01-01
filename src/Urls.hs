@@ -4,6 +4,7 @@ module Urls where
 
 import Types
 
+import Control.Applicative          ((<$>))
 import Data.ByteString.Char8  as C8 (ByteString, pack, unpack, isInfixOf, isPrefixOf, null)
 import Data.ByteString.Search       (breakOn, breakAfter)
 import Data.List.Split              (splitWhen)
@@ -14,7 +15,16 @@ canonicaliseRequest :: Request -> Maybe CanonicalUrl
 canonicaliseRequest = canonicaliseNetworkUri . getUri
 
 canonicaliseNetworkUri :: URI -> Maybe CanonicalUrl
-canonicaliseNetworkUri = canonicaliseString . show
+canonicaliseNetworkUri = canonicaliseString . show . stripPort
+
+    where
+    stripPort :: URI -> URI
+    stripPort uri = uri { uriAuthority = stripPort' (uriScheme uri) <$> uriAuthority uri }
+        where
+        stripPort' :: String -> URIAuth -> URIAuth
+        stripPort' "http:" auth = auth {uriPort = if uriPort auth == ":80" then "" else uriPort auth}
+        stripPort' "https:" auth = auth {uriPort = if uriPort auth == ":443" then "" else uriPort auth}
+        stripPort' _ auth = auth
 
 canonicaliseByteString :: ByteString -> Maybe CanonicalUrl
 canonicaliseByteString = canonicaliseString . unpack
