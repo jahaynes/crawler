@@ -2,13 +2,13 @@
 
 module Fetch where
 
+import Parse
 import Urls
 import Settings
 import Types
 
 import Data.CaseInsensitive         (mk)
 import Control.Applicative          ((<$>))
-import Control.Monad                (when)
 import Control.Exception.Lifted     (try)
 import Control.Monad.Trans.Resource (ResourceT, runResourceT)
 import Data.ByteString.Char8        (ByteString, unpack)
@@ -92,11 +92,14 @@ getWithRedirects man requestCookies formOrUrl = do
     let startUrl = case formOrUrl of
                        Left (FormRequest _ target _) -> [target]
                        Right url -> [url]
-    let redirects = catMaybes mRedirects ++ startUrl
+    let redirects = dedupe $ catMaybes mRedirects ++ startUrl
 
-    when (length redirects < length mRedirects + 1) (putStrLn "Warning, not all redirects were parsed!")
-
-    return (mLbs, dedupe redirects)
+    case mLbs of
+        Left e -> return (Left e, redirects)
+        Right r@(bs,cs) ->
+            case findPageRedirect bs of
+                Nothing -> return (Right r, redirects)
+                Just redir -> getWithRedirects man (requestCookies++cs) (Right redir)
 
     where
     dedupe :: [CanonicalUrl] -> [CanonicalUrl]
