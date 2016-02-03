@@ -7,7 +7,6 @@ import Settings
 import Types
 
 import Data.CaseInsensitive         (mk)
-import Control.Applicative          ((<$>))
 import Control.Monad                (when)
 import Control.Exception.Lifted     (try)
 import Control.Monad.Trans.Resource (ResourceT, runResourceT)
@@ -17,35 +16,32 @@ import qualified Data.ByteString    as BS
 import Data.Conduit                 (ResumableSource, ($$+-), ($=))
 import Data.Conduit.Binary          (sinkLbs)
 import qualified Data.Conduit.List  as CL (map)
+import GHC.Exception                (SomeException)
 import Data.List                    (group)
 import Data.Maybe                   (catMaybes)
 import Network.HTTP.Conduit
-import Network.HTTP.Types.Status    (statusCode)
-import Network.HTTP.Types.Header
 import Safe                         (readMay)
-import Network.HTTP.Types           (methodPost)
+import Network.HTTP.Types           
 
-requestWithoutRedirects :: [Cookie] -> CanonicalUrl -> IO Request 
-requestWithoutRedirects requestCookies url = do
-    req <- basicAuthSettings . proxySettings <$> parseUrl (show url)
-    return $ req {
-                  redirectCount = 0,
-                  cookieJar = Just (createCookieJar requestCookies)
-                 }
+makeRequest :: [Cookie] -> DownloadRequest -> Either SomeException Request 
+makeRequest requestCookies downloadRequest = do
 
-makeFormRequest :: [Cookie] -> FormRequest -> IO Request
-makeFormRequest requestCookies (FormRequest formMethod (CanonicalUrl target) params) = do
+    req <- parseUrl . show . getUrl $ downloadRequest
 
-    let addParams = if mk formMethod == mk methodPost
-                        then urlEncodedBody params
-                        else setQueryString (map (\(k,v) -> (k,Just v)) params) 
+    return . applyParametersFrom downloadRequest
+           . basicAuthSettings
+           . proxySettings 
+           $ req {
+               redirectCount = 0,
+               cookieJar = Just (createCookieJar requestCookies)
+             }
 
-    req <- basicAuthSettings . proxySettings <$> parseUrl (unpack target)
-
-    return $ addParams req {
-                            redirectCount = 0,
-                            cookieJar = Just (createCookieJar requestCookies)
-                           }
+    where
+    applyParametersFrom :: DownloadRequest -> (Request -> Request)
+    applyParametersFrom (GetRequest _) = id
+    applyParametersFrom (FR (FormRequest formMethod _ params))
+        | mk formMethod == mk methodPost = urlEncodedBody params
+        | otherwise                      = setQueryString (map (\(k,v) -> (k,Just v)) params) 
 
 data DownloadAmount = TooBig
                     | SmallEnough
@@ -53,50 +49,48 @@ data DownloadAmount = TooBig
 
 getWithRedirects :: Manager
                  -> [Cookie]
-                 -> Either FormRequest CanonicalUrl
+                 -> DownloadRequest
                  -> IO (Either String (ByteString, [Cookie]), [CanonicalUrl])
-getWithRedirects man requestCookies formOrUrl = do
+getWithRedirects man requestCookies downloadRequest = do
 
-    req <- case formOrUrl of
-               Left formOptions -> makeFormRequest requestCookies formOptions
-               Right url -> requestWithoutRedirects requestCookies url
+    case makeRequest requestCookies downloadRequest of
+        Left ex -> return (Left $ "Could not make request from " ++ show downloadRequest ++ "\nThe reason was: " ++ show ex, [])
 
-    (mLbs, mRedirects) <-
-        runResourceT $ do
-            (mResponse, mRedirects) <- followRedirects maxRedirects req [canonicaliseRequest req]
-            case mResponse of
-                Left l -> return (Left l, mRedirects)
-                Right response -> do
+        Right req -> do
 
-                    let responseCookies = destroyCookieJar . responseCookieJar $ response
+            (mLbs, mRedirects) <-
+                runResourceT $ do
+                    (mResponse, mRedirects) <- followRedirects maxRedirects req [canonicaliseRequest req]
+                    case mResponse of
+                        Left l -> return (Left l, mRedirects)
+                        Right response -> do
 
-                    let downloadAmount = 
-                            case getContentLength response of
-                                Nothing -> Unknown
-                                Just x | x <= maxContentLength -> SmallEnough
-                                       | otherwise -> TooBig
+                            let responseCookies = destroyCookieJar . responseCookieJar $ response
 
-                    case downloadAmount of
+                            let downloadAmount = 
+                                    case getContentLength response of
+                                        Nothing -> Unknown
+                                        Just x | x <= maxContentLength -> SmallEnough
+                                               | otherwise -> TooBig
 
-                        TooBig -> return (Left "Too big", mRedirects)
+                            case downloadAmount of
 
-                        SmallEnough -> do
-                            bs <- responseBody response $$+- (toStrict <$> sinkLbs)
-                            case BS.last bs of _ -> return (Right (bs, responseCookies), mRedirects)
+                                TooBig -> return (Left "Too big", mRedirects)
 
-                        Unknown -> do
-                            bs <- responseBody response $$+- CL.map (BS.take maxContentLength) $= (toStrict <$> sinkLbs)
-                            case BS.last bs of _ -> return (Right (bs, responseCookies), mRedirects)
+                                SmallEnough -> do
+                                    bs <- responseBody response $$+- (toStrict <$> sinkLbs)
+                                    case BS.last bs of _ -> return (Right (bs, responseCookies), mRedirects)
 
-    -- Include the starting URL as a "redirect", in case a "/" was put on the end
-    let startUrl = case formOrUrl of
-                       Left (FormRequest _ target _) -> [target]
-                       Right url -> [url]
-    let redirects = catMaybes mRedirects ++ startUrl
+                                Unknown -> do
+                                    bs <- responseBody response $$+- CL.map (BS.take maxContentLength) $= (toStrict <$> sinkLbs)
+                                    case BS.last bs of _ -> return (Right (bs, responseCookies), mRedirects)
 
-    when (length redirects < length mRedirects + 1) (putStrLn "Warning, not all redirects were parsed!")
+            --Include the initial url in the redirects
+            let redirects = catMaybes mRedirects ++ [getUrl downloadRequest]
 
-    return (mLbs, dedupe redirects)
+            when (length redirects < length mRedirects + 1) (putStrLn "Warning, not all redirects were parsed!")
+
+            return (mLbs, dedupe redirects)
 
     where
     dedupe :: [CanonicalUrl] -> [CanonicalUrl]
