@@ -31,17 +31,21 @@ parsePage redirects contents = do
     (loggables, urls, forms)
 
 getRawHrefs :: CanonicalUrl -> ByteString -> [Either Loggable CanonicalUrl]
-getRawHrefs onUrl bs =
-    let tags = filter (\(k,_) -> mk k == mk "href")
-             . concatMap (\(TagOpen _ attribs) -> attribs)
-             . filter (isTagOpenName "a") 
-             . parseTags $ bs
-    in map (derelativise . snd) tags
+getRawHrefs onUrl = map derelativise 
+                  . map trim
+                  . map snd 
+                  . filter (\(k,_) -> mk k == mk "href")
+                  . concatMap (\(TagOpen _ attribs) -> attribs)
+                  . filter (isTagOpenName "a") 
+                  . parseTags
 
     where
+    trim :: ByteString -> ByteString
+    trim = C8.reverse . C8.dropWhile isSpace . C8.reverse . C8.dropWhile isSpace
+
     derelativise :: ByteString -> Either Loggable CanonicalUrl
     derelativise bsUrl = do
-        let url = unpack . trim $ bsUrl
+        let url = unpack bsUrl
         
         if "mailto:" `C8.isPrefixOf` bsUrl
             then Left $ LoggableWarning onUrl $ C8.append "Found an email " bsUrl
@@ -61,6 +65,3 @@ getRawHrefs onUrl bs =
                             x ->
                                 let errMessage = C8.concat ["Couldn't derelativise ", C8.pack . show $ x, "right side was: ", bsUrl]
                                 in Left (LoggableError onUrl errMessage)
-
-        where
-        trim = C8.reverse . C8.dropWhile isSpace . C8.reverse . C8.dropWhile isSpace
