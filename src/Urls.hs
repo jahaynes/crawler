@@ -29,9 +29,16 @@ canonicaliseNetworkUri = canonicaliseString . show . stripPort
 canonicaliseByteString :: ByteString -> Maybe CanonicalUrl
 canonicaliseByteString = canonicaliseString . unpack
 
+discardFragments :: Bool
+discardFragments = True
+
 canonicaliseString :: String -> Maybe CanonicalUrl
-canonicaliseString str =
-    case parseAbsoluteURI str of
+canonicaliseString str = 
+    let str' = if discardFragments
+                   then takeWhile (/= '#') str
+                   else str
+    in 
+    case parseAbsoluteURI str' of
         Just x -> Just (CanonicalUrl (pack . normalize . show $ (x :: URI)))
         Nothing -> Nothing
 
