@@ -61,7 +61,7 @@ crawlUrls workers crawlerState threadId = do
 
         resetThreadClock nextUrl
 
-        (mBodyData, redirects) <- getWithRedirects man cookiesToSend (Right nextUrl)
+        (mBodyData, redirects) <- getWithRedirects man cookiesToSend (GetRequest nextUrl)
 
         processResponse (mBodyData, redirects) man nextUrl cookiesToSend
 
@@ -82,7 +82,7 @@ crawlUrls workers crawlerState threadId = do
                     Just formOptions -> do
 
                         let moreCookies = responseCookies ++ cookiesSent
-                        formResponse <- getWithRedirects man moreCookies (Left formOptions)
+                        formResponse <- getWithRedirects man moreCookies (FR formOptions)
                         processResponse formResponse man nextUrl moreCookies
 
                     Nothing -> do
