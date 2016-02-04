@@ -82,7 +82,7 @@ crawlUrls workers crawlerState threadId = do
                     Just formOptions -> do
 
                         let moreCookies = responseCookies ++ cookiesSent
-                        formResponse <- getWithRedirects man moreCookies (FR formOptions)
+                        formResponse <- getWithRedirects man moreCookies formOptions
                         processResponse formResponse man nextUrl moreCookies
 
                     Nothing -> do
