@@ -62,9 +62,7 @@ data Success = Success | Failure Reason deriving Show
 data Form = Form CanonicalUrl Action [Input] deriving Show
 
 data DownloadRequest = GetRequest CanonicalUrl
-                     | FR FormRequest deriving Show
-
-data FormRequest = FormRequest Method CanonicalUrl [(ByteString, ByteString)] deriving Show
+                     | FormRequest Method CanonicalUrl [(ByteString, ByteString)] deriving Show
 
 data Action = Action Method RelativeUrl deriving Show
 
@@ -74,7 +72,7 @@ newtype RelativeUrl = RelativeUrl ByteString deriving Show
 
 getUrl :: DownloadRequest -> CanonicalUrl
 getUrl (GetRequest url) = url
-getUrl (FR (FormRequest _ targetUrl _)) = targetUrl
+getUrl (FormRequest _ targetUrl _) = targetUrl
 
 setAsList :: Set a -> STM [a]
 setAsList = toList . stream

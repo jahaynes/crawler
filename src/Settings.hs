@@ -26,7 +26,7 @@ maxContentLength = 2 * 1024 * 1024
 shareCookie :: Cookie -> Bool
 shareCookie = const True
 
-selectFormOptions :: [Form] -> Maybe FormRequest
+selectFormOptions :: [Form] -> Maybe DownloadRequest
 selectFormOptions [] = Nothing
 selectFormOptions ((Form (CanonicalUrl urlFormLocation) (Action method (RelativeUrl relUrl)) inputs) : fs) = do
 
