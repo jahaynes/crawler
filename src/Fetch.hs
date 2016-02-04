@@ -8,6 +8,7 @@ import Types
 
 import Data.CaseInsensitive         (mk)
 import Control.Monad                (when)
+import Control.Monad.IO.Class       (liftIO)
 import Control.Exception.Lifted     (try)
 import Control.Monad.Trans.Resource (ResourceT, runResourceT)
 import Data.ByteString.Char8        (ByteString, unpack)
@@ -43,10 +44,6 @@ makeRequest requestCookies downloadRequest = do
         | mk formMethod == mk methodPost = urlEncodedBody params
         | otherwise                      = setQueryString (map (\(k,v) -> (k,Just v)) params) 
 
-data DownloadAmount = TooBig
-                    | SmallEnough
-                    | Unknown
-
 getWithRedirects :: Manager
                  -> [Cookie]
                  -> DownloadRequest
@@ -58,49 +55,44 @@ getWithRedirects man requestCookies downloadRequest = do
 
         Right req -> do
 
-            (mLbs, mRedirects) <-
-                runResourceT $ do
-                    (mResponse, mRedirects) <- followRedirects maxRedirects req [canonicaliseRequest req]
-                    case mResponse of
-                        Left l -> return (Left l, mRedirects)
-                        Right response -> do
+            runResourceT $ do
+                (mResponse, mRedirects) <- followRedirects maxRedirects req [canonicaliseRequest req]
 
-                            let responseCookies = destroyCookieJar . responseCookieJar $ response
+                mContent <- downloadEnoughContent mResponse
 
-                            let downloadAmount = 
-                                    case getContentLength response of
-                                        Nothing -> Unknown
-                                        Just x | x <= maxContentLength -> SmallEnough
-                                               | otherwise -> TooBig
+                --Include the initial url in the redirects
+                let redirects = catMaybes mRedirects ++ [getUrl downloadRequest]
 
-                            case downloadAmount of
+                when (length redirects < length mRedirects + 1) (liftIO $ putStrLn "Warning, not all redirects were parsed!")
 
-                                TooBig -> return (Left "Too big", mRedirects)
-
-                                SmallEnough -> do
-                                    bs <- responseBody response $$+- (toStrict <$> sinkLbs)
-                                    case BS.last bs of _ -> return (Right (bs, responseCookies), mRedirects)
-
-                                Unknown -> do
-                                    bs <- responseBody response $$+- CL.map (BS.take maxContentLength) $= (toStrict <$> sinkLbs)
-                                    case BS.last bs of _ -> return (Right (bs, responseCookies), mRedirects)
-
-            --Include the initial url in the redirects
-            let redirects = catMaybes mRedirects ++ [getUrl downloadRequest]
-
-            when (length redirects < length mRedirects + 1) (putStrLn "Warning, not all redirects were parsed!")
-
-            return (mLbs, dedupe redirects)
+                return (mContent, dedupe redirects)
 
     where
     dedupe :: [CanonicalUrl] -> [CanonicalUrl]
     dedupe = map head . group
 
-    getContentLength :: Response a -> Maybe Int
-    getContentLength response =
-        case filter (\(k,_) -> mk k == mk hContentLength) . responseHeaders $ response of
-            [] -> Nothing
-            ((_,x):_) -> readMay $ unpack x
+    downloadEnoughContent mResponse =
+        case mResponse of
+            Left l -> return (Left l)
+            Right response -> do
+
+                let responseCookies = destroyCookieJar . responseCookieJar $ response
+
+                case getContentLength response of
+                    Just x | x <= maxContentLength -> do
+                                bs <- responseBody response $$+- (toStrict <$> sinkLbs)
+                                case BS.last bs of _ -> return (Right (bs, responseCookies))
+                           | otherwise -> return (Left "Too big")
+                    Nothing -> do
+                        bs <- responseBody response $$+- CL.map (BS.take maxContentLength) $= (toStrict <$> sinkLbs)
+                        case BS.last bs of _ -> return (Right (bs, responseCookies))
+
+        where
+        getContentLength :: Response a -> Maybe Int
+        getContentLength response =
+            case filter (\(k,_) -> mk k == mk hContentLength) . responseHeaders $ response of
+                [] -> Nothing
+                ((_,x):_) -> readMay $ unpack x
 
     followRedirects :: Int -> 
                        Request ->
