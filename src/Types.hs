@@ -3,17 +3,18 @@ module Types where
 import CountedQueue
 import Communication
 
-import Data.ByteString.Char8 
-import Data.Hashable
-import Control.Concurrent           (ThreadId)
+import Control.Monad.Trans.Resource     (ResourceT)
+import Data.ByteString.Char8            (ByteString, unpack)
+import Data.Conduit                     (ResumableSource)
+import Data.Hashable                    (Hashable, hashWithSalt)
+import Control.Concurrent               (ThreadId)
 import Control.Concurrent.STM           (STM, TVar)
-import Control.Concurrent.STM.TQueue (TQueue)
+import Control.Concurrent.STM.TQueue    (TQueue)
 import ListT                            (toList)
-import Network.HTTP.Conduit (Cookie)
-import Network.HTTP.Types (Method)
-
-import STMContainers.Map    (Map)
-import STMContainers.Set    (Set, stream)
+import Network.HTTP.Conduit             (Cookie, Response)
+import Network.HTTP.Types               (Method)
+import STMContainers.Map                (Map)
+import STMContainers.Set                (Set, stream)
 
 type Crawled = (ThreadId, [CanonicalUrl], ByteString)
 
@@ -64,9 +65,13 @@ data Form = Form CanonicalUrl Action [Input] deriving Show
 data DownloadRequest = GetRequest CanonicalUrl
                      | FormRequest Method CanonicalUrl [(ByteString, ByteString)] deriving Show
 
+type DownloadSource = Response (ResumableSource (ResourceT IO) ByteString)
+
+type DownloadResponse = (ByteString, [Cookie])
+
 data Action = Action Method RelativeUrl deriving Show
 
-data Input = Input [(ByteString, ByteString)] deriving Show
+newtype Input = Input [(ByteString, ByteString)] deriving Show
 
 newtype RelativeUrl = RelativeUrl ByteString deriving Show
 

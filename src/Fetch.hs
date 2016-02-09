@@ -11,10 +11,10 @@ import Control.Monad                (when)
 import Control.Monad.IO.Class       (liftIO)
 import Control.Exception.Lifted     (try)
 import Control.Monad.Trans.Resource (ResourceT, runResourceT)
-import Data.ByteString.Char8        (ByteString, unpack)
+import Data.ByteString.Char8        (unpack)
 import Data.ByteString.Lazy.Char8   (toStrict)
 import qualified Data.ByteString    as BS
-import Data.Conduit                 (ResumableSource, ($$+-), ($=))
+import Data.Conduit                 (($$+-), ($=))
 import Data.Conduit.Binary          (sinkLbs)
 import qualified Data.Conduit.List  as CL (map)
 import GHC.Exception                (SomeException)
@@ -47,7 +47,7 @@ makeRequest requestCookies downloadRequest = do
 getWithRedirects :: Manager
                  -> [Cookie]
                  -> DownloadRequest
-                 -> IO (Either String (ByteString, [Cookie]), [CanonicalUrl])
+                 -> IO (Either String DownloadResponse, [CanonicalUrl])
 getWithRedirects man requestCookies downloadRequest = do
 
     case makeRequest requestCookies downloadRequest of
@@ -71,6 +71,7 @@ getWithRedirects man requestCookies downloadRequest = do
     dedupe :: [CanonicalUrl] -> [CanonicalUrl]
     dedupe = map head . group
 
+    downloadEnoughContent :: Either String DownloadSource -> (ResourceT IO) (Either String DownloadResponse)
     downloadEnoughContent mResponse =
         case mResponse of
             Left l -> return (Left l)
@@ -97,7 +98,7 @@ getWithRedirects man requestCookies downloadRequest = do
     followRedirects :: Int -> 
                        Request ->
                        [Maybe CanonicalUrl] ->
-                       (ResourceT IO) (Either String (Response (ResumableSource (ResourceT IO) ByteString)), [Maybe CanonicalUrl])
+                       (ResourceT IO) (Either String DownloadSource, [Maybe CanonicalUrl])
     followRedirects 0     _ redirs = return (Left "Too many redirects", redirs)
     followRedirects n req redirs = do
         eitherResponse <- try (http req man)
