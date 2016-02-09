@@ -11,7 +11,7 @@ import Control.Concurrent               (ThreadId)
 import Control.Concurrent.STM           (STM, TVar)
 import Control.Concurrent.STM.TQueue    (TQueue)
 import ListT                            (toList)
-import Network.HTTP.Conduit             (Cookie, Response)
+import Network.HTTP.Conduit             (Manager, Cookie, Response)
 import Network.HTTP.Types               (Method)
 import STMContainers.Map                (Map)
 import STMContainers.Set                (Set, stream)
@@ -23,6 +23,7 @@ data CrawlerState = CrawlerState {
     getUrlQueue :: PoliteQueue,  
     getStoreQueue :: CountedQueue Crawled,
     getLogQueue :: CountedQueue Loggable,
+    getManager :: Manager,
     getCookieList :: TVar [Cookie],
     getUrlPatterns :: Set ByteString,
     getUrlsInProgress :: Set CanonicalUrl,
