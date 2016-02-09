@@ -23,6 +23,8 @@ import Control.Concurrent               (threadDelay)
 import Control.Concurrent.STM           (atomically, newTVarIO, readTVar)
 import Control.Monad                    (forever, unless)
 
+import Network.HTTP.Conduit             (Manager, newManager, tlsManagerSettings)
+
 import qualified STMContainers.Set as S
 import qualified STMContainers.Map as M
 
@@ -32,12 +34,13 @@ createCrawlerState = do
     urlQueue <- PQ.newIO
     storeQueue <- newQueueIO (Bounded 32)
     loggingQueue <- newQueueIO (Bounded 128)
+    manager <- newManager tlsManagerSettings
     cookieList <- newTVarIO []
     urlPatterns <- S.newIO
     urlsInProgress <- S.newIO
     urlsCompleted <- S.newIO
     urlsFailed <- M.newIO
-    return $ CrawlerState crawlerStatus urlQueue storeQueue loggingQueue cookieList urlPatterns urlsInProgress urlsCompleted urlsFailed
+    return $ CrawlerState crawlerStatus urlQueue storeQueue loggingQueue manager cookieList urlPatterns urlsInProgress urlsCompleted urlsFailed
 
 main :: IO ()
 main = do

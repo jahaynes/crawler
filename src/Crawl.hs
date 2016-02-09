@@ -19,7 +19,7 @@ import Data.ByteString.Char8            (ByteString, isInfixOf)
 import Data.List                        ((\\))
 import Data.Maybe                       (isJust)
 import Data.Time
-import Network.HTTP.Conduit             (Manager, newManager, tlsManagerSettings, Cookie)
+import Network.HTTP.Conduit             (Manager, Cookie)
 import qualified STMContainers.Set as S
 import qualified STMContainers.Map as M
 
@@ -52,8 +52,6 @@ setNumCrawlers crawlerState workers desiredNum = do
 crawlUrls :: Workers -> CrawlerState -> ThreadId -> IO ()
 crawlUrls workers crawlerState threadId = do
 
-    man <- newManager tlsManagerSettings
-
     whileActive threadId (getCrawlerThreads workers) (getCrawlerThreadsToStop workers) $ do
 
         nextUrl <- atomically $ PQ.readQueue threadId (getUrlQueue crawlerState)
@@ -61,13 +59,13 @@ crawlUrls workers crawlerState threadId = do
 
         resetThreadClock nextUrl
 
-        (mBodyData, redirects) <- getWithRedirects man cookiesToSend (GetRequest nextUrl)
+        (mBodyData, redirects) <- getWithRedirects (getManager crawlerState) cookiesToSend (GetRequest nextUrl)
 
-        processResponse (mBodyData, redirects) man nextUrl cookiesToSend
+        processResponse (mBodyData, redirects) nextUrl cookiesToSend
 
     where
-    processResponse :: (Either String (ByteString, [Cookie]), [CanonicalUrl]) -> Manager -> CanonicalUrl -> [Cookie] -> IO ()
-    processResponse (mBodyData, redirects) man nextUrl cookiesSent =
+    processResponse :: (Either String (ByteString, [Cookie]), [CanonicalUrl]) -> CanonicalUrl -> [Cookie] -> IO ()
+    processResponse (mBodyData, redirects) nextUrl cookiesSent =
         case mBodyData of
             Left err -> do
                 putStrLn $ "Failed to download (thread " ++ show threadId ++ ")"
@@ -82,8 +80,8 @@ crawlUrls workers crawlerState threadId = do
                     Just formOptions -> do
 
                         let moreCookies = responseCookies ++ cookiesSent
-                        formResponse <- getWithRedirects man moreCookies formOptions
-                        processResponse formResponse man nextUrl moreCookies
+                        formResponse <- getWithRedirects (getManager crawlerState) moreCookies formOptions
+                        processResponse formResponse nextUrl moreCookies
 
                     Nothing -> do
                         atomically $ shareCookies (responseCookies \\ cookiesSent)
