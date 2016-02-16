@@ -5,28 +5,27 @@ module Main where
 import Communication
 import CountedQueue
 import Crawl
-import MessageHandler   (handleMessages)
+import Data.ByteString.Char8            (ByteString, pack)
+import MessageHandler                   (handleMessages)
 import qualified PoliteQueue    as PQ
-import Shared
 import Settings
 import Types
+import Urls
 import Output
 import Errors
 import Workers
 
-import Data.Ord (comparing)
-import Data.List (sortBy)
-import Data.Time
-
 import Control.Applicative              ((<$>))
 import Control.Concurrent               (threadDelay)
 import Control.Concurrent.STM           (atomically, newTVarIO, readTVar)
-import Control.Monad                    (forever, unless)
+import Control.Monad                    (unless)
 
-import Network.HTTP.Conduit             (Manager, newManager, tlsManagerSettings)
+import Network.HTTP.Conduit             (newManager, tlsManagerSettings)
 
 import qualified STMContainers.Set as S
 import qualified STMContainers.Map as M
+
+import System.Environment               (getArgs)
 
 createCrawlerState :: IO CrawlerState
 createCrawlerState = do
@@ -41,6 +40,17 @@ createCrawlerState = do
     urlsCompleted <- S.newIO
     urlsFailed <- M.newIO
     return $ CrawlerState crawlerStatus urlQueue storeQueue loggingQueue manager cookieList urlPatterns urlsInProgress urlsCompleted urlsFailed
+
+data StartMode = WithFrontEnd
+               | Headless CanonicalUrl ByteString
+               | FailStartup String
+
+parseArgs :: [String] -> StartMode
+parseArgs [strStartUrl, includePattern] =
+    case canonicaliseString strStartUrl of
+        Nothing -> FailStartup $ "Could not canonicalise url: " ++ strStartUrl
+        Just startUrl -> Headless startUrl (pack includePattern)
+parseArgs _ = WithFrontEnd
 
 main :: IO ()
 main = do
@@ -57,12 +67,21 @@ main = do
 
     forkWorker workers "Message Handler" $ receiveMessagesWith (handleMessages crawlerState workers)
 
-    forever $ do
-        halted <- (== Halted) <$> (atomically . readTVar $ getCrawlerStatus crawlerState)
-        unless halted $ do
-            {-clockList <- atomically . mapAsList . getThreadClocks $ workers
-            time <- getCurrentTime
-            putStrLn "\n"
-            mapM_ (\(a,(t,u)) -> putStrLn $ show a ++ "\t" ++ show (diffUTCTime time t) ++ "\t" ++ show u ) . sortBy (comparing snd) $ clockList -}
-            threadDelay 1000000
+    startMode <- parseArgs <$> getArgs
 
+    case startMode of
+        FailStartup msg -> error msg
+        WithFrontEnd -> run (getCrawlerStatus crawlerState)
+        Headless startUrl includePattern -> do
+            atomically . S.insert includePattern . getUrlPatterns $ crawlerState
+            launchSuccess <- processNextUrl crawlerState startUrl
+            case launchSuccess of
+                Success -> run (getCrawlerStatus crawlerState)
+                Failure reason -> error reason
+
+    where
+    run crawlerStatus = do
+        halted <- (== Halted) <$> (atomically . readTVar $ crawlerStatus)
+        unless halted $ do
+            threadDelay 1000000
+            run crawlerStatus
