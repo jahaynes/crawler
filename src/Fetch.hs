@@ -7,6 +7,7 @@ import Settings
 import Types
 
 import Data.CaseInsensitive         (mk)
+import Control.Applicative          ((<$>))
 import Control.Monad                (when)
 import Control.Monad.IO.Class       (liftIO)
 import Control.Exception.Lifted     (try)
