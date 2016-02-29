@@ -5,6 +5,7 @@ module Crawl where
 import CountedQueue
 import qualified PoliteQueue as PQ
 import Fetch
+import Forms                            (selectFormOptions)
 import Workers
 import Parse (parsePage)
 import Settings
@@ -19,7 +20,7 @@ import Data.ByteString.Char8            (ByteString, isInfixOf)
 import Data.List                        ((\\))
 import Data.Maybe                       (isJust)
 import Data.Time
-import Network.HTTP.Conduit             (Manager, Cookie)
+import Network.HTTP.Conduit             (Cookie)
 import qualified STMContainers.Set as S
 import qualified STMContainers.Map as M
 
@@ -75,7 +76,7 @@ crawlUrls workers crawlerState threadId = do
 
                 let (hrefErrors, nextHrefs, forms) = parsePage redirects bodyData
 
-                case selectFormOptions forms of
+                case selectFormOptions (getFormInstructions crawlerState) forms of
 
                     Just formOptions -> do
 

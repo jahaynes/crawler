@@ -2,11 +2,17 @@
 
 module Settings where
 
-import Urls
-import Data.ByteString.Char8    (unpack)
+import Prelude hiding (lookup)
+
+import qualified Data.ByteString.Char8   as C8
+import Data.List
+import Data.List.Split
+import Data.Maybe
+import qualified Data.Map as M
+import Safe
 import Types
 import Network.HTTP.Conduit     (Request, Cookie, addProxy, applyBasicAuth)
-import Network.URI              (parseAbsoluteURI, parseRelativeReference)
+import Network.URI              (unEscapeString)
 
 numStartCrawlers :: Int
 numStartCrawlers = 20
@@ -26,21 +32,47 @@ maxContentLength = 2 * 1024 * 1024
 shareCookie :: Cookie -> Bool
 shareCookie = const True
 
-selectFormOptions :: [Form] -> Maybe DownloadRequest
-selectFormOptions [] = Nothing
-selectFormOptions ((Form (CanonicalUrl urlFormLocation) (Action method (RelativeUrl relUrl)) inputs) : fs) = do
+--Example format for form_instructions.cfg
+{-x = unlines [ "Label=login"
+            , "UrlRegex=http://127.0.0.1:3000/login/"
+            , "FormActionRegex=http://127.0.0.1:3000/submitLogin"
+            , "username=admin"
+            , "password=admin"
+            , ""
+            , "Label=confirm"
+            , "UrlRegex=http://127.0.0.1:3000/confirm/"
+            , "FormActionRegex=http://127.0.0.1:3000/submitConfirm"
+            , "accept=true"
+            , ""
+            ]-}
 
-    let target =
-            case (parseAbsoluteURI $ unpack urlFormLocation, parseRelativeReference $ unpack relUrl) of
-                (Just ou, Just u) -> ou `urlPlus` u
-                _ -> error "Could not derelativise url in selectFormOptions"
+loadFormInstructions :: FilePath -> IO FormInstructions
+loadFormInstructions fp = do
+    f <- readFile fp
+    let ls = filter (not . null) . splitOn [""] . lines $ f
+        instructions = catMaybes . map chunkToInstruction $ ls
+    return . FormInstructions $ M.fromList instructions
 
-        params =
-            case (urlFormLocation, relUrl) of
-                ("http://fullUrlOf/Form1", "relativeFormTarget") -> Just [error "Specify form params"]
-                ("http://fullUrlOf/Form2", "relativeFormTarget2") -> Just [error "Specify form params"]
-                _ -> Nothing
+chunkToInstruction :: [String] -> Maybe (Label, (UrlRegex, FormActionRegex, FormParameters))
+chunkToInstruction chunk = do
 
-    case params of
-        Just ps -> Just (FormRequest method target ps)
-        Nothing -> selectFormOptions fs
+    let keysAndVals = map (splitOn "=") chunk
+
+        tuples = map (\[a,b] -> (a,b))
+               . filter (\x -> length x == 2) $ keysAndVals
+
+        (required, paramStrings) =
+            partition (\x -> fst x `elem` ["Label", "UrlRegex", "FormActionRegex"]) tuples
+
+    label <- getVal "Label" required
+    urlRegex <- getVal "UrlRegex" required
+    formActionRegex <- getVal "FormActionRegex" required
+    let params = map (both (C8.pack . unEscapeString)) paramStrings
+
+    return (Label label, (UrlRegex urlRegex, FormActionRegex formActionRegex, FormParameters params))
+
+    where
+    both f (k,v) = (f k, f v)
+
+    getVal :: String -> [(String, String)] -> Maybe C8.ByteString
+    getVal key = headMay . map (C8.pack . snd) . filter (\x -> fst x == key)
