@@ -2,6 +2,7 @@
 
 module Urls where
 
+import Settings
 import Types
 
 import Control.Applicative          ((<$>))
@@ -29,16 +30,9 @@ canonicaliseNetworkUri = canonicaliseString . show . stripPort
 canonicaliseByteString :: ByteString -> Maybe CanonicalUrl
 canonicaliseByteString = canonicaliseString . unpack
 
-discardFragments :: Bool
-discardFragments = True
-
 canonicaliseString :: String -> Maybe CanonicalUrl
-canonicaliseString str = 
-    let str' = if discardFragments
-                   then takeWhile (/= '#') str
-                   else str
-    in 
-    case parseAbsoluteURI str' of
+canonicaliseString str =
+    case parseAbsoluteURI (discard str) of
         Just x -> Just (CanonicalUrl (pack . normalize . show $ (x :: URI)))
         Nothing -> Nothing
 
@@ -46,7 +40,11 @@ normalize :: String -> String
 normalize = normalizeCase . normalizeEscape . normalizePathSegments
 
 urlPlus :: URI -> URI -> CanonicalUrl
-urlPlus a b = CanonicalUrl (pack . normalize . show . relativeTo b $ a)
+urlPlus a b = CanonicalUrl (pack . discard . normalize . show . relativeTo b $ a)
+
+discard :: String -> String
+discard str | discardFragments = takeWhile (/= '#') str
+            | otherwise = str
 
 contains :: CanonicalUrl -> ByteString -> Bool
 contains (CanonicalUrl u) bs = bs `isInfixOf` u

@@ -32,6 +32,10 @@ maxRedirects = 20
 maxContentLength :: Int
 maxContentLength = 2 * 1024 * 1024
 
+--Ignore after #
+discardFragments :: Bool
+discardFragments = True
+
 shareCookie :: Cookie -> Bool
 shareCookie = const True
 
