@@ -7,6 +7,9 @@ import Control.Monad.Trans.Resource     (ResourceT)
 import Data.ByteString.Char8            (ByteString, unpack)
 import Data.Conduit                     (ResumableSource)
 import Data.Hashable                    (Hashable, hashWithSalt)
+
+import qualified Data.Map       as M
+
 import Control.Concurrent               (ThreadId)
 import Control.Concurrent.STM           (STM, TVar)
 import Control.Concurrent.STM.TQueue    (TQueue)
@@ -19,6 +22,7 @@ import STMContainers.Set                (Set, stream)
 type Crawled = (ThreadId, [CanonicalUrl], ByteString)
 
 data CrawlerState = CrawlerState {
+    getFormInstructions :: FormInstructions,
     getCrawlerStatus :: TVar CrawlerStatus,
     getUrlQueue :: PoliteQueue,  
     getStoreQueue :: CountedQueue Crawled,
@@ -61,24 +65,31 @@ type Reason = String
 
 data Success = Success | Failure Reason deriving Show
 
-data Form = Form CanonicalUrl Action [Input] deriving Show
+data Form = Form CanonicalUrl Action [FormParameters] deriving Show
+newtype Label = Label ByteString deriving (Show, Eq, Ord)
+type FormKey = ByteString
+type FormValue = ByteString
 
 data DownloadRequest = GetRequest CanonicalUrl
-                     | FormRequest Method CanonicalUrl [(ByteString, ByteString)] deriving Show
+                     | FormRequest Label Method CanonicalUrl FormParameters deriving Show
 
 type DownloadSource = Response (ResumableSource (ResourceT IO) ByteString)
 
 type DownloadResponse = (ByteString, [Cookie])
 
-data Action = Action Method RelativeUrl deriving Show
+newtype UrlRegex = UrlRegex ByteString deriving Show
+newtype FormActionRegex = FormActionRegex ByteString deriving Show
+newtype FormParameters = FormParameters [(FormKey, FormValue)] deriving Show
 
-newtype Input = Input [(ByteString, ByteString)] deriving Show
+newtype FormInstructions = FormInstructions (M.Map Label (UrlRegex, FormActionRegex, FormParameters)) deriving Show
+
+data Action = Action Method RelativeUrl deriving Show
 
 newtype RelativeUrl = RelativeUrl ByteString deriving Show
 
 getUrl :: DownloadRequest -> CanonicalUrl
 getUrl (GetRequest url) = url
-getUrl (FormRequest _ targetUrl _) = targetUrl
+getUrl (FormRequest _ _ targetUrl _) = targetUrl
 
 setAsList :: Set a -> STM [a]
 setAsList = toList . stream

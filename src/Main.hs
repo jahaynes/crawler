@@ -20,26 +20,31 @@ import Control.Concurrent               (threadDelay)
 import Control.Concurrent.STM           (atomically, newTVarIO, readTVar)
 import Control.Monad                    (unless)
 
-import Network.HTTP.Conduit             (newManager, tlsManagerSettings)
+import Network.HTTP.Conduit             (newManager, tlsManagerSettings, mkManagerSettings)
+import Network.Connection               (TLSSettings (TLSSettingsSimple))
 
 import qualified STMContainers.Set as S
 import qualified STMContainers.Map as M
 
 import System.Environment               (getArgs)
+import System.Remote.Monitoring         (forkServer)
 
 createCrawlerState :: IO CrawlerState
 createCrawlerState = do
+    formInstructions <- loadFormInstructions "form_instructions.cfg"
     crawlerStatus <- newTVarIO RunningStatus
     urlQueue <- PQ.newIO
     storeQueue <- newQueueIO (Bounded 32)
     loggingQueue <- newQueueIO (Bounded 128)
-    manager <- newManager tlsManagerSettings
+    manager <- newManager (if ignoreBadHttpsCerts
+                               then mkManagerSettings (TLSSettingsSimple True False False) Nothing
+                               else tlsManagerSettings)
     cookieList <- newTVarIO []
     urlPatterns <- S.newIO
     urlsInProgress <- S.newIO
     urlsCompleted <- S.newIO
     urlsFailed <- M.newIO
-    return $ CrawlerState crawlerStatus urlQueue storeQueue loggingQueue manager cookieList urlPatterns urlsInProgress urlsCompleted urlsFailed
+    return $ CrawlerState formInstructions crawlerStatus urlQueue storeQueue loggingQueue manager cookieList urlPatterns urlsInProgress urlsCompleted urlsFailed
 
 data StartMode = WithFrontEnd
                | Headless CanonicalUrl ByteString
@@ -54,6 +59,8 @@ parseArgs _ = WithFrontEnd
 
 main :: IO ()
 main = do
+
+    _ <- forkServer "localhost" 8000
 
     crawlerState <- createCrawlerState
 

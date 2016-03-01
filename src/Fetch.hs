@@ -41,7 +41,7 @@ makeRequest requestCookies downloadRequest = do
     where
     applyParametersFrom :: DownloadRequest -> (Request -> Request)
     applyParametersFrom (GetRequest _) = id
-    applyParametersFrom (FormRequest formMethod _ params)
+    applyParametersFrom (FormRequest     _ formMethod _ (FormParameters params))
         | mk formMethod == mk methodPost = urlEncodedBody params
         | otherwise                      = setQueryString (map (\(k,v) -> (k,Just v)) params) 
 
