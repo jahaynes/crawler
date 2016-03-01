@@ -7,7 +7,7 @@ import qualified PoliteQueue as PQ
 import Fetch
 import Forms                            (selectFormOptions)
 import Workers
-import Parse (parsePage)
+import Parse (parsePage, findPageRedirect)
 import Settings
 import Shared
 import Types
@@ -74,21 +74,34 @@ crawlUrls workers crawlerState threadId = do
                 atomically $ failedDownload nextUrl
             Right (bodyData, responseCookies) -> do
 
-                let (hrefErrors, nextHrefs, forms) = parsePage redirects bodyData
+                --Give meta refresh a chance to fire
+                case findPageRedirect bodyData of
+                    Just metaRefreshUrl -> do
+                        {- Chance of crawler trap here. Perhaps we should 
+                           check that metaRefreshUrl hasn't already been visited 
 
-                case selectFormOptions (getFormInstructions crawlerState) forms of
-
-                    Just formOptions -> do
-
+                           Also, include pattern?  We may or may not want to go
+                           offsite here -}
                         let moreCookies = responseCookies ++ cookiesSent
-                        formResponse <- getWithRedirects (getManager crawlerState) moreCookies formOptions
+                        formResponse <- getWithRedirects (getManager crawlerState) moreCookies (GetRequest metaRefreshUrl)
                         processResponse formResponse nextUrl moreCookies
 
-                    Nothing -> do
-                        atomically $ shareCookies (responseCookies \\ cookiesSent)
-                        mapM_ (atomically . writeQueue (getLogQueue crawlerState)) hrefErrors
-                        atomically $ successfulDownload nextUrl redirects bodyData
-                        mapM_ (processNextUrl crawlerState) nextHrefs  
+                    Nothing ->
+                        let (hrefErrors, nextHrefs, forms) = parsePage redirects bodyData
+                        in
+                        case selectFormOptions (getFormInstructions crawlerState) forms of
+
+                            Just formRequest -> do
+
+                                let moreCookies = responseCookies ++ cookiesSent
+                                formResponse <- getWithRedirects (getManager crawlerState) moreCookies formRequest
+                                processResponse formResponse nextUrl moreCookies
+
+                            Nothing -> do
+                                atomically $ shareCookies (responseCookies \\ cookiesSent)
+                                mapM_ (atomically . writeQueue (getLogQueue crawlerState)) hrefErrors
+                                atomically $ successfulDownload nextUrl redirects bodyData
+                                mapM_ (processNextUrl crawlerState) nextHrefs  
 
     shareCookies :: [Cookie] -> STM ()
     shareCookies responseCookiesToshare =
