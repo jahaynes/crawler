@@ -20,7 +20,8 @@ import Control.Concurrent               (threadDelay)
 import Control.Concurrent.STM           (atomically, newTVarIO, readTVar)
 import Control.Monad                    (unless)
 
-import Network.HTTP.Conduit             (newManager, tlsManagerSettings)
+import Network.HTTP.Conduit             (newManager, tlsManagerSettings, mkManagerSettings)
+import Network.Connection               (TLSSettings (TLSSettingsSimple))
 
 import qualified STMContainers.Set as S
 import qualified STMContainers.Map as M
@@ -35,7 +36,9 @@ createCrawlerState = do
     urlQueue <- PQ.newIO
     storeQueue <- newQueueIO (Bounded 32)
     loggingQueue <- newQueueIO (Bounded 128)
-    manager <- newManager tlsManagerSettings
+    manager <- newManager (if ignoreBadHttpsCerts
+                               then mkManagerSettings (TLSSettingsSimple True False False) Nothing
+                               else tlsManagerSettings)
     cookieList <- newTVarIO []
     urlPatterns <- S.newIO
     urlsInProgress <- S.newIO

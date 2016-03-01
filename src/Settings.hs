@@ -23,6 +23,9 @@ proxySettings = id -- addProxy "127.0.0.1" 8085
 basicAuthSettings :: Request -> Request
 basicAuthSettings = id -- applyBasicAuth "basicUser" "basicPass"
 
+ignoreBadHttpsCerts :: Bool
+ignoreBadHttpsCerts = True
+
 maxRedirects :: Int
 maxRedirects = 20
 
