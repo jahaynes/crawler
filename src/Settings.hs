@@ -2,6 +2,7 @@
 
 module Settings where
 
+import Shared (both)
 import Prelude hiding (lookup)
 
 import qualified Data.ByteString.Char8   as C8
@@ -79,7 +80,5 @@ chunkToInstruction chunk = do
     return (Label label, (UrlRegex urlRegex, FormActionRegex formActionRegex, FormParameters params))
 
     where
-    both f (k,v) = (f k, f v)
-
     getVal :: String -> [(String, String)] -> Maybe C8.ByteString
     getVal key = headMay . map (C8.pack . snd) . filter (\x -> fst x == key)
