@@ -1,11 +1,11 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE BangPatterns, OverloadedStrings #-}
 
 module Forms where
 
 import Types
 import Urls                     (urlPlus)
 
-import Data.ByteString.Char8    (ByteString, unpack)
+import Data.ByteString.Char8    (ByteString, unpack, empty)
 import Data.CaseInsensitive     (mk)
 import qualified Data.Map       as M
 import Data.Maybe               (mapMaybe)
@@ -50,36 +50,52 @@ getForms onUrl = map asForm . isolateForms . parseTags
         takeWhilePlus1 p (x:xs) | p x       = x : takeWhilePlus1 p xs
                                 | otherwise = x : takeWhilePlus1 p []
 
-selectFormOptions :: FormInstructions -> [Form] -> Maybe DownloadRequest
+selectFormOptions :: SuppliedFormActions -> [Form] -> Maybe DownloadRequest
 selectFormOptions              _ [] = Nothing
-selectFormOptions allFormActions (Form (CanonicalUrl urlFormLocation) (Action method (RelativeUrl relUrl)) inputs : fs) = do
+selectFormOptions suppliedFormActions ((Form cu@(CanonicalUrl urlFormLocation) (Action method (RelativeUrl relUrl)) inputs) : fs) = do
 
     let formTargetUrl =
             case (parseAbsoluteURI $ unpack urlFormLocation, parseRelativeReference $ unpack relUrl) of
                 (Just ou, Just u) -> ou `urlPlus` u
                 _ -> error "Could not derelativise url in selectFormOptions"
 
-    case applicableFormParameters formTargetUrl of
-        Just (label, ps) -> Just (FormRequest label method formTargetUrl ps)
-        Nothing          -> selectFormOptions allFormActions fs
+    case mergeSuppliedAndDiscoveredFormActions suppliedFormActions cu formTargetUrl inputs of
+        Just (CombinedFormActions label ps) -> Just (FormRequest label method formTargetUrl ps)
+        Nothing          -> selectFormOptions suppliedFormActions fs
+
+mergeSuppliedAndDiscoveredFormActions :: SuppliedFormActions -> CanonicalUrl -> CanonicalUrl -> [FormParameters] -> Maybe CombinedFormActions
+mergeSuppliedAndDiscoveredFormActions (SuppliedFormActions suppliedFormActions)
+                                      (CanonicalUrl urlFormLocation)
+                                      (CanonicalUrl formTargetUrl)
+                                      discoveredFormParameters = do
+
+    (ApplicableSuppliedFormActions label params) <- getApplicableSuppliedFormActions
+
+    let discovered = M.fromList . mapMaybe discoverFormParameter $ discoveredFormParameters
+        sendTheseParams = M.toList . apply params $ discovered
+
+    return $ CombinedFormActions label (FormParameters sendTheseParams)
 
     where
-    applicableFormParameters :: CanonicalUrl -> Maybe (Label, FormParameters)
-    applicableFormParameters (CanonicalUrl formTargetUrl) = do
-
-        (label, FormParameters parameters) <- headMay
-                                            . M.toList
-                                            . M.map (\(_, _, ps) -> ps)
-                                            . M.filter (\(UrlRegex ur, FormActionRegex fr, _)
-                                                -> urlFormLocation =~ ur && formTargetUrl =~ fr)
-                                            . (\(FormInstructions fiMap) -> fiMap)
-                                            $ allFormActions
-
-        return (label, FormParameters $ prefillExisting inputs ++ parameters)
-
+    apply :: FormParameters -> M.Map FormKey FormValue -> M.Map FormKey FormValue
+    apply (FormParameters ps_) = go ps_
         where
-        prefillExisting :: [FormParameters] -> [(FormKey, FormValue)]
-        prefillExisting = mapMaybe extractNameAndValue
-            where
-            extractNameAndValue (FormParameters xs) = (,) <$> extract "name" xs <*> extract "value" xs
-            extract key = (headMay . map snd . filter (\x -> fst x == key))
+        go     [] !m = m
+        go ((k,v):ps) m = do
+            case M.lookup k m of
+                Nothing -> error $ "Trying to override non-existing key: " ++ show k
+                Just _ -> go ps (M.insert k v m)
+
+    discoverFormParameter :: FormParameters -> Maybe (FormKey, FormValue)
+    discoverFormParameter (FormParameters kvs) = do
+        name <- headMay . map snd . filter (\(k,_) -> mk k == mk "name") $ kvs
+        case headMay . map snd . filter (\(k,_) -> mk k == mk "value") $ kvs of
+            Nothing -> return (name, empty)
+            Just val -> return (name, val)
+
+    getApplicableSuppliedFormActions :: Maybe ApplicableSuppliedFormActions
+    getApplicableSuppliedFormActions = headMay
+                                     . map (\(label, (_,_,ps)) -> ApplicableSuppliedFormActions label ps)
+                                     . M.toList
+                                     . M.filter (\(UrlRegex ur, FormActionRegex fr, _) -> urlFormLocation =~ ur && formTargetUrl =~ fr)
+                                     $ suppliedFormActions
