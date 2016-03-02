@@ -54,12 +54,12 @@ shareCookie = const True
             , ""
             ]-}
 
-loadFormInstructions :: FilePath -> IO FormInstructions
+loadFormInstructions :: FilePath -> IO SuppliedFormActions
 loadFormInstructions fp = do
     f <- readFile fp
     let ls = filter (not . null) . splitOn [""] . lines $ f
         instructions = catMaybes . map chunkToInstruction $ ls
-    return . FormInstructions $ M.fromList instructions
+    return . SuppliedFormActions $ M.fromList instructions
 
 chunkToInstruction :: [String] -> Maybe (Label, (UrlRegex, FormActionRegex, FormParameters))
 chunkToInstruction chunk = do

@@ -22,7 +22,7 @@ import STMContainers.Set                (Set, stream)
 type Crawled = (ThreadId, [CanonicalUrl], ByteString)
 
 data CrawlerState = CrawlerState {
-    getFormInstructions :: FormInstructions,
+    getFormInstructions :: SuppliedFormActions,
     getCrawlerStatus :: TVar CrawlerStatus,
     getUrlQueue :: PoliteQueue,  
     getStoreQueue :: CountedQueue Crawled,
@@ -81,7 +81,11 @@ newtype UrlRegex = UrlRegex ByteString deriving Show
 newtype FormActionRegex = FormActionRegex ByteString deriving Show
 newtype FormParameters = FormParameters [(FormKey, FormValue)] deriving Show
 
-newtype FormInstructions = FormInstructions (M.Map Label (UrlRegex, FormActionRegex, FormParameters)) deriving Show
+newtype SuppliedFormActions = SuppliedFormActions (M.Map Label (UrlRegex, FormActionRegex, FormParameters)) deriving Show
+
+data ApplicableSuppliedFormActions = ApplicableSuppliedFormActions Label FormParameters deriving Show
+
+data CombinedFormActions = CombinedFormActions Label FormParameters
 
 data Action = Action Method RelativeUrl deriving Show
 
