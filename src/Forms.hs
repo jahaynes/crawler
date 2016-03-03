@@ -80,7 +80,7 @@ mergeSuppliedAndDiscoveredFormActions (SuppliedFormActions suppliedFormActions)
     apply (FormParameters ps_) = go ps_
         where
         go     [] !m = m
-        go ((k,v):ps) m = do
+        go ((k,v):ps) m =
             case M.lookup k m of
                 Nothing -> error $ "Trying to override non-existing key: " ++ show k
                 Just _ -> go ps (M.insert k v m)

@@ -62,7 +62,7 @@ parseRelative relative =
     where
     stripQueryParams :: String -> (String, Maybe String)
     stripQueryParams url
-        | '?' `elem` url = do
+        | '?' `elem` url =
             case splitWhen (\a -> a == '?' || a == '#') url of
                 [r,q,f] -> (Prelude.concat [r,"#",f], Just ('?':q))
                 [r,q] -> (r, Nothing)

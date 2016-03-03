@@ -12,7 +12,6 @@ import Urls
 import Workers
 
 import Control.Concurrent.STM           (atomically, readTVar, modifyTVar')
-import Control.Monad                    (liftM)
 import GHC.Conc                         (threadStatus)
 import Network.HTTP.Conduit
 
@@ -20,7 +19,7 @@ import qualified Data.ByteString.Char8      as C8
 import qualified STMContainers.Set          as S
 
 handleMessages :: CrawlerState -> Workers -> Message -> IO Message
-handleMessages crawlerState workers (CommandMessage c) = liftM AnswerMessage . handleCommand $ c
+handleMessages crawlerState workers (CommandMessage c) = fmap AnswerMessage . handleCommand $ c
     where
 
     {- Add a URL -}
@@ -86,21 +85,21 @@ handleMessages crawlerState workers (CommandMessage c) = liftM AnswerMessage . h
                 putStrLn msg
                 return $ CouldntAnswer msg
 
-handleMessages crawlerState workers (QuestionMessage q) = liftM AnswerMessage . handleQuestion $ q
+handleMessages crawlerState workers (QuestionMessage q) = AnswerMessage <$> handleQuestion q
     where
 
     {- Ask the size of the URL Queue -}
     handleQuestion (GetQueueSize queue) =
         case queue of
-            UrlQueue -> liftM QueueSize . atomically . PQ.size . getUrlQueue $ crawlerState
+            UrlQueue -> QueueSize <$> (atomically . PQ.size . getUrlQueue $ crawlerState)
             StoreQueue -> returnQueueSize . getStoreQueue $ crawlerState
             ErrorQueue -> returnQueueSize . getLogQueue $ crawlerState
 
         where
-        returnQueueSize = liftM QueueSize . atomically . size
+        returnQueueSize = fmap QueueSize . atomically . size
 
     {- Ask for the Crawler's current Status -}
-    handleQuestion GetCrawlerStatus = liftM CrawlerStatus . atomically . readTVar . getCrawlerStatus $ crawlerState
+    handleQuestion GetCrawlerStatus = CrawlerStatus <$> (atomically . readTVar . getCrawlerStatus $ crawlerState)
 
     {- Get the workers' statuses -}
     handleQuestion GetWorkerStatuses = do

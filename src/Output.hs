@@ -20,5 +20,5 @@ storePages crawlerState =  runResourceT
 
     where
     redirectsLine :: (ThreadId, [ByteString]) -> ByteString
-    redirectsLine (tid, redirects) = BS.concat [(pack . show $ tid), " finished\t", intercalate " <- " redirects, "\n"]
+    redirectsLine (tid, redirects) = BS.concat [pack . show $ tid, " finished\t", intercalate " <- " redirects, "\n"]
 

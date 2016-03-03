@@ -53,9 +53,7 @@ parsePage redirects contents = do
     (loggables, urls, forms)
 
 getRawHrefs :: CanonicalUrl -> ByteString -> [Either Loggable CanonicalUrl]
-getRawHrefs onUrl = map (derelativise onUrl)
-                  . map trim
-                  . map snd 
+getRawHrefs onUrl = map (derelativise onUrl . trim . snd)
                   . filter (\(k,_) -> mk k == mk "href")
                   . concatMap (\(TagOpen _ attribs) -> attribs)
                   . filter (isTagOpenName "a") 

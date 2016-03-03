@@ -58,7 +58,7 @@ loadFormInstructions :: FilePath -> IO SuppliedFormActions
 loadFormInstructions fp = do
     f <- readFile fp
     let ls = filter (not . null) . splitOn [""] . lines $ f
-        instructions = catMaybes . map chunkToInstruction $ ls
+        instructions = mapMaybe chunkToInstruction ls
     return . SuppliedFormActions $ M.fromList instructions
 
 chunkToInstruction :: [String] -> Maybe (Label, (UrlRegex, FormActionRegex, FormParameters))
