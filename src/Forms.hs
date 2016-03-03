@@ -3,9 +3,9 @@
 module Forms where
 
 import Types
-import Urls                     (urlPlus)
+import Urls                     (derelativise)
 
-import Data.ByteString.Char8    (ByteString, unpack, empty)
+import Data.ByteString.Char8    (ByteString, empty)
 import Data.CaseInsensitive     (mk)
 import qualified Data.Map       as M
 import Data.Maybe               (mapMaybe)
@@ -14,7 +14,6 @@ import Text.HTML.TagSoup        hiding (parseTags)
 import Text.HTML.TagSoup.Fast   (parseTags)
 import Text.Regex.PCRE          ((=~))
 import Network.HTTP.Types       (Method, methodGet)
-import Network.URI              (parseAbsoluteURI, parseRelativeReference)
 
 getForms :: CanonicalUrl -> ByteString -> [Form]
 getForms onUrl = map asForm . isolateForms . parseTags
@@ -52,14 +51,14 @@ getForms onUrl = map asForm . isolateForms . parseTags
 
 selectFormOptions :: SuppliedFormActions -> [Form] -> Maybe DownloadRequest
 selectFormOptions              _ [] = Nothing
-selectFormOptions suppliedFormActions ((Form cu@(CanonicalUrl urlFormLocation) (Action method (RelativeUrl relUrl)) inputs) : fs) = do
+selectFormOptions suppliedFormActions ((Form formLocation (Action method (RelativeUrl relUrl)) inputs) : fs) = do
 
     let formTargetUrl =
-            case (parseAbsoluteURI $ unpack urlFormLocation, parseRelativeReference $ unpack relUrl) of
-                (Just ou, Just u) -> ou `urlPlus` u
-                _ -> error "Could not derelativise url in selectFormOptions"
+            case derelativise formLocation relUrl of
+                Left l -> error $ show l --TODO clean this error handling up to act on one form at a time
+                Right r -> r
 
-    case mergeSuppliedAndDiscoveredFormActions suppliedFormActions cu formTargetUrl inputs of
+    case mergeSuppliedAndDiscoveredFormActions suppliedFormActions formLocation formTargetUrl inputs of
         Just (CombinedFormActions label ps) -> Just (FormRequest label method formTargetUrl ps)
         Nothing          -> selectFormOptions suppliedFormActions fs
 
