@@ -59,7 +59,7 @@ instance Show CanonicalUrl where
     show (CanonicalUrl bs) = unpack bs
 
 data Loggable = LoggableWarning CanonicalUrl ByteString
-              | LoggableError CanonicalUrl ByteString
+              | LoggableError CanonicalUrl ByteString deriving Show
 
 type Reason = String
 

@@ -53,7 +53,7 @@ parsePage redirects contents = do
     (loggables, urls, forms)
 
 getRawHrefs :: CanonicalUrl -> ByteString -> [Either Loggable CanonicalUrl]
-getRawHrefs onUrl = map derelativise 
+getRawHrefs onUrl = map (derelativise onUrl)
                   . map trim
                   . map snd 
                   . filter (\(k,_) -> mk k == mk "href")
@@ -64,26 +64,3 @@ getRawHrefs onUrl = map derelativise
     where
     trim :: ByteString -> ByteString
     trim = C8.reverse . C8.dropWhile isSpace . C8.reverse . C8.dropWhile isSpace
-
-    derelativise :: ByteString -> Either Loggable CanonicalUrl
-    derelativise bsUrl = do
-        let url = unpack bsUrl
-        
-        if "mailto:" `C8.isPrefixOf` bsUrl
-            then Left $ LoggableWarning onUrl $ C8.append "Found an email " bsUrl
-            else
-                if isURI url
-                    then
-                        case canonicaliseByteString bsUrl of
-                            Nothing -> 
-                                let errMessage = C8.append "Could not parse URL: " bsUrl
-                                in Left (LoggableError onUrl errMessage)
-                            Just canonicalised -> Right canonicalised
-                    else do
-                        let mOnUrl = parseAbsoluteURI (show onUrl)
-                            mUrl = parseRelative url
-                        case (mOnUrl, mUrl) of
-                            (Just ou, Just u) -> Right $ ou `urlPlus` u                      
-                            x ->
-                                let errMessage = C8.concat ["Couldn't derelativise ", C8.pack . show $ x, "right side was: ", bsUrl]
-                                in Left (LoggableError onUrl errMessage)
