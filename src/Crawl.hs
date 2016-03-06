@@ -21,6 +21,7 @@ import Data.List                        ((\\))
 import Data.Maybe                       (isJust)
 import Data.Time
 import Network.HTTP.Conduit             (Cookie)
+import qualified ListT             as L
 import qualified STMContainers.Set as S
 import qualified STMContainers.Map as M
 
@@ -35,8 +36,11 @@ setNumCrawlers crawlerState workers desiredNum = do
                 if threadDelta > 0
                     then return threadDelta
                     else do
-                        threadsToStop <- takeSet (-threadDelta) (getCrawlerThreads workers)
-                        mapM_ (\t -> S.insert t (getCrawlerThreadsToStop workers)) threadsToStop
+                        L.traverse_ (`S.insert` getCrawlerThreadsToStop workers)
+                            . L.take (-threadDelta)
+                            . S.stream
+                            . getCrawlerThreads
+                            $ workers
                         return 0
     replicateM_ threadsToAdd addCrawler
 

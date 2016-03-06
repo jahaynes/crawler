@@ -13,9 +13,6 @@ mapAsList = L.toList . M.stream
 sizeOfSet :: S.Set a -> STM Int
 sizeOfSet = L.fold (\a _ -> return (a + 1)) 0 . S.stream
 
-takeSet :: Int -> S.Set a -> STM [a]
-takeSet n = L.toList . L.take n . S.stream
-
 both :: (a -> b) -> (a,a) -> (b,b)
 both f (k,v) = (f k, f v)
 
