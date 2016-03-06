@@ -23,6 +23,7 @@ import Data.Time
 import Network.HTTP.Conduit             (Cookie)
 import qualified STMContainers.Set as S
 import qualified STMContainers.Map as M
+import Text.HTML.TagSoup.Fast   (parseTags)
 
 setNumCrawlers :: CrawlerState -> Workers -> Int -> IO ()
 setNumCrawlers crawlerState workers desiredNum = do
@@ -74,8 +75,10 @@ crawlUrls workers crawlerState threadId = do
                 atomically $ failedDownload nextUrl
             Right (bodyData, responseCookies) -> do
 
+                let parsedTags = parseTags bodyData
+
                 --Give meta refresh a chance to fire
-                case findPageRedirect bodyData of
+                case findPageRedirect parsedTags of
                     Just metaRefreshUrl -> do
                         {- Chance of crawler trap here. Perhaps we should 
                            check that metaRefreshUrl hasn't already been visited 
@@ -87,7 +90,7 @@ crawlUrls workers crawlerState threadId = do
                         processResponse formResponse nextUrl moreCookies
 
                     Nothing ->
-                        let (hrefErrors, nextHrefs, forms) = parsePage redirects bodyData
+                        let (hrefErrors, nextHrefs, forms) = parsePage redirects parsedTags
                         in
                         case selectFormOptions (getFormInstructions crawlerState) forms of
 

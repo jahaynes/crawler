@@ -10,13 +10,12 @@ import Data.CaseInsensitive     (mk)
 import qualified Data.Map       as M
 import Data.Maybe               (mapMaybe)
 import Safe                     (headMay)
-import Text.HTML.TagSoup        hiding (parseTags)
-import Text.HTML.TagSoup.Fast   (parseTags)
+import Text.HTML.TagSoup
 import Text.Regex.PCRE          ((=~))
 import Network.HTTP.Types       (Method, methodGet)
 
-getForms :: CanonicalUrl -> ByteString -> [Form]
-getForms onUrl = map asForm . isolateForms . parseTags
+getForms :: CanonicalUrl -> [Tag ByteString] -> [Form]
+getForms onUrl = map asForm . isolateForms
 
     where
     asForm :: [Tag ByteString] -> Form
