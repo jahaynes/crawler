@@ -98,7 +98,7 @@ crawlUrls workers crawlerState threadId = do
 
         where
         storeResponse bodyData responseCookies nextHrefs hrefErrors = do
-            included <- atomically $ checkAgainstIncludePatterns crawlerState nextUrl
+            included <- atomically $ checkAgainstIncludePatterns crawlerState (head redirects)
             when included $ do
                 atomically $ shareCookies (responseCookies \\ cookiesSent)
                 mapM_ (atomically . writeQueue (getLogQueue crawlerState)) hrefErrors
