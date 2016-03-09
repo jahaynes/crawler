@@ -15,7 +15,7 @@ import Types
 import Control.Applicative              ((<$>), (<*>))
 import Control.Concurrent               (ThreadId, myThreadId)
 import Control.Concurrent.STM           (STM, atomically, readTVar, modifyTVar')
-import Control.Monad                    (replicateM_)
+import Control.Monad                    (replicateM_, when)
 import Data.ByteString.Char8            (ByteString, isInfixOf)
 import Data.List                        ((\\))
 import Data.Maybe                       (isJust)
@@ -85,10 +85,7 @@ crawlUrls workers crawlerState threadId = do
                 case findPageRedirect parsedTags of
                     Just metaRefreshUrl -> do
                         {- Chance of crawler trap here. Perhaps we should 
-                           check that metaRefreshUrl hasn't already been visited 
-
-                           Also, include pattern?  We may or may not want to go
-                           offsite here -}
+                           check that metaRefreshUrl hasn't already been visited -}
                         let moreCookies = responseCookies ++ cookiesSent
                         formResponse <- getWithRedirects (getManager crawlerState) moreCookies (GetRequest metaRefreshUrl)
                         processResponse formResponse nextUrl moreCookies
@@ -104,11 +101,16 @@ crawlUrls workers crawlerState threadId = do
                                 formResponse <- getWithRedirects (getManager crawlerState) moreCookies formRequest
                                 processResponse formResponse nextUrl moreCookies
 
-                            Nothing -> do
-                                atomically $ shareCookies (responseCookies \\ cookiesSent)
-                                mapM_ (atomically . writeQueue (getLogQueue crawlerState)) hrefErrors
-                                atomically $ successfulDownload nextUrl redirects bodyData
-                                mapM_ (processNextUrl crawlerState) nextHrefs  
+                            Nothing -> storeResponse bodyData responseCookies nextHrefs hrefErrors
+
+        where
+        storeResponse bodyData responseCookies nextHrefs hrefErrors = do
+            included <- atomically $ checkAgainstIncludePatterns crawlerState (head redirects)
+            when included $ do
+                atomically $ shareCookies (responseCookies \\ cookiesSent)
+                mapM_ (atomically . writeQueue (getLogQueue crawlerState)) hrefErrors
+                atomically $ successfulDownload nextUrl redirects bodyData
+                mapM_ (processNextUrl crawlerState) nextHrefs  
 
     shareCookies :: [Cookie] -> STM ()
     shareCookies responseCookiesToshare =
@@ -130,8 +132,8 @@ crawlUrls workers crawlerState threadId = do
     resetThreadClock nextUrl = getCurrentTime >>= \c -> atomically . M.insert (c, nextUrl) threadId . getThreadClocks $ workers
         
 processNextUrl :: CrawlerState -> CanonicalUrl -> IO Success
-processNextUrl crawlerState url@(CanonicalUrl url') = do
-    isAcceptable <- atomically checkAcceptable
+processNextUrl crawlerState url = do
+    isAcceptable <- atomically $ checkAgainstIncludePatterns crawlerState url
     if isAcceptable
         then
             atomically $ do
@@ -148,7 +150,7 @@ processNextUrl crawlerState url@(CanonicalUrl url') = do
                         PQ.writeQueue url (getUrlQueue crawlerState)
         else return $ Failure "URL wasn't acceptable"
 
-    where
-    checkAcceptable :: STM Bool
-    checkAcceptable = any (`isInfixOf` url') <$> setAsList (getUrlPatterns crawlerState)
+checkAgainstIncludePatterns :: CrawlerState -> CanonicalUrl -> STM Bool
+checkAgainstIncludePatterns crawlerState (CanonicalUrl url) =
+    any (`isInfixOf` url) <$> setAsList (getUrlPatterns crawlerState)
 
