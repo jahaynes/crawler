@@ -13,6 +13,7 @@ import qualified Data.Map       as M
 import Control.Concurrent               (ThreadId)
 import Control.Concurrent.STM           (STM, TVar)
 import Control.Concurrent.STM.TQueue    (TQueue)
+import Data.Time                        (UTCTime)
 import ListT                            (toList)
 import Network.HTTP.Conduit             (Manager, Cookie, Response)
 import Network.HTTP.Types               (Method)
@@ -41,6 +42,14 @@ data PoliteQueue = PoliteQueue {
                         getDomainMapping :: Map Domain (TQueue CanonicalUrl),
                         getSlowLane :: TQueue CanonicalUrl
                    }
+
+data Workers = Workers {
+    getCrawlerThreads :: Set ThreadId,
+    getCrawlerThreadsToStop :: Set ThreadId,
+
+    getActiveThreads :: Map ThreadId String,
+    getThreadClocks :: Map ThreadId (UTCTime, CanonicalUrl)
+}
 
 newtype CanonicalUrl = CanonicalUrl ByteString deriving Ord
 

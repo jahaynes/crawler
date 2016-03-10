@@ -7,8 +7,7 @@ import qualified PoliteQueue as PQ
 import Fetch
 import Forms                            (selectFormOptions)
 import Includes                         (checkAgainstIncludePatterns)
-import Workers
-import Parse (parsePage, findPageRedirect)
+import Parse                            (parsePage, findPageRedirect)
 import Settings
 import Shared
 import Types
@@ -17,7 +16,7 @@ import Control.Applicative              ((<$>), (<*>))
 import Control.Concurrent               (ThreadId, myThreadId)
 import Control.Concurrent.STM           (STM, atomically, readTVar, modifyTVar')
 import Control.Monad                    (replicateM_, when)
-import Data.ByteString.Char8            (ByteString, isInfixOf)
+import Data.ByteString.Char8            (ByteString)
 import Data.List                        ((\\))
 import Data.Maybe                       (isJust)
 import Data.Time
