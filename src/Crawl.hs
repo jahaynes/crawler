@@ -6,7 +6,7 @@ import CountedQueue
 import qualified PoliteQueue as PQ
 import Fetch
 import Forms                            (selectFormOptions)
-import Parse (parsePage, findPageRedirect)
+import Parse                            (parsePage, findPageRedirect)
 import Settings
 import Shared
 import Types
@@ -152,4 +152,3 @@ processNextUrl crawlerState url = do
 checkAgainstIncludePatterns :: CrawlerState -> CanonicalUrl -> STM Bool
 checkAgainstIncludePatterns crawlerState (CanonicalUrl url) =
     any (`isInfixOf` url) <$> setAsList (getUrlPatterns crawlerState)
-

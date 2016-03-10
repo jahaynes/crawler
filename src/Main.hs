@@ -4,22 +4,20 @@ module Main where
 
 import Communication
 import CountedQueue
-import Crawl
-import Data.ByteString.Char8            (ByteString, pack)
+import Includes
 import qualified PoliteQueue    as PQ
 import Settings
 import Types
-import Urls
 import Workers
 
-import Control.Applicative              ((<$>))
-import Control.Concurrent               (threadDelay)
-import Control.Concurrent.STM           (atomically, newTVarIO, readTVar)
-import Control.Monad                    (unless)
-
+import Control.Applicative              ((<$>), (<*>))
+import Control.Concurrent.STM           (newTVarIO)
+import Data.List
+import Data.Maybe                       (mapMaybe)
+import qualified Data.Map               as Map
 import Network.HTTP.Conduit             (newManager, tlsManagerSettings, mkManagerSettings)
 import Network.Connection               (TLSSettings (TLSSettingsSimple))
-
+import Safe
 import qualified STMContainers.Set as S
 import qualified STMContainers.Map as M
 
@@ -43,6 +41,7 @@ createCrawlerState = do
     urlsFailed <- M.newIO
     return $ CrawlerState formInstructions crawlerStatus urlQueue storeQueue loggingQueue manager cookieList urlPatterns urlsInProgress urlsCompleted urlsFailed
 
+{-
 data StartMode = WithFrontEnd
                | Headless CanonicalUrl ByteString
                | FailStartup String
@@ -52,19 +51,37 @@ parseArgs [strStartUrl, includePattern] =
     case canonicaliseString strStartUrl of
         Nothing -> FailStartup $ "Could not canonicalise url: " ++ strStartUrl
         Just startUrl -> Headless startUrl (pack includePattern)
-parseArgs _ = WithFrontEnd
+        parseArgs _ = WithFrontEnd -}
+
+optionMapFromArgs :: [String] -> OptionMap
+optionMapFromArgs =   OptionMap
+                  <$> Map.unionsWith union
+                  .   mapMaybe (\gr -> Map.singleton <$> (OptionFlag <$> headMay gr) <*> tailMay gr)
+                  .   filter (\gr -> maybe False isFlag (headMay gr))
+                  .   groupBy (\a b -> isFlag a && not (isFlag b))
+
+    where
+    isFlag x = length x > 1 && head x == '-'
 
 main :: IO ()
 main = do
+
+    args <- getArgs
+
+    let optionMap = optionMapFromArgs args
 
     _ <- forkServer "localhost" 8000
 
     crawlerState <- createCrawlerState
 
+    initialiseIncludes crawlerState optionMap
+
     initialiseWorkers crawlerState
 
-    startMode <- parseArgs <$> getArgs
+    --startMode <- parseArgs <$> getArgs
 
+    
+    {-
     case startMode of
         FailStartup msg -> error msg
         WithFrontEnd -> run (getCrawlerStatus crawlerState)
@@ -80,4 +97,4 @@ main = do
         halted <- (== Halted) <$> (atomically . readTVar $ crawlerStatus)
         unless halted $ do
             threadDelay 1000000
-            run crawlerStatus
+            run crawlerStatus -}
