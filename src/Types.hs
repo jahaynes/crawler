@@ -100,6 +100,10 @@ data Action = Action Method RelativeUrl deriving Show
 
 newtype RelativeUrl = RelativeUrl ByteString deriving Show
 
+newtype OptionFlag = OptionFlag String deriving (Show, Eq, Ord)
+
+newtype OptionMap = OptionMap (M.Map OptionFlag [String]) deriving Show
+
 getUrl :: DownloadRequest -> CanonicalUrl
 getUrl (GetRequest url) = url
 getUrl (FormRequest _ _ targetUrl _) = targetUrl

@@ -5,13 +5,13 @@ module Main where
 import Communication
 import CountedQueue
 import Crawl
+import Includes
 import qualified PoliteQueue    as PQ
 import Settings
 import Types
-import Urls
 import Workers
 
-import Control.Applicative              ((<$>))
+import Control.Applicative              ((<$>), (<*>))
 import Control.Concurrent.STM           (newTVarIO)
 import Data.List
 import Data.Maybe                       (mapMaybe)
@@ -54,13 +54,12 @@ parseArgs [strStartUrl, includePattern] =
         Just startUrl -> Headless startUrl (pack includePattern)
         parseArgs _ = WithFrontEnd -}
 
-parseArgs args = do
-
-    print       . Map.unions
-                . mapMaybe (\gr -> Map.singleton <$> headMay gr <*> tailMay gr)
-                . filter (\gr -> maybe False isFlag (headMay gr))
-                . groupBy (\a b -> isFlag a && not (isFlag b))
-                $ args
+optionMapFromArgs :: [String] -> OptionMap
+optionMapFromArgs =   OptionMap
+                  <$> Map.unionsWith union
+                  .   mapMaybe (\gr -> Map.singleton <$> (OptionFlag <$> headMay gr) <*> tailMay gr)
+                  .   filter (\gr -> maybe False isFlag (headMay gr))
+                  .   groupBy (\a b -> isFlag a && not (isFlag b))
 
     where
     isFlag x = length x > 1 && head x == '-'
@@ -68,18 +67,20 @@ parseArgs args = do
 main :: IO ()
 main = do
 
+    args <- getArgs
+
+    let optionMap = optionMapFromArgs args
+
     _ <- forkServer "localhost" 8000
 
     crawlerState <- createCrawlerState
+
+    initialiseIncludes crawlerState optionMap
 
     initialiseWorkers crawlerState
 
     --startMode <- parseArgs <$> getArgs
 
-    args <- getArgs
-    
-    parseArgs args
-    
     
     {-
     case startMode of
