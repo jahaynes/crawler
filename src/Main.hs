@@ -4,7 +4,6 @@ module Main where
 
 import Communication
 import CountedQueue
-import Crawl
 import Includes
 import qualified PoliteQueue    as PQ
 import Settings

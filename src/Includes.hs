@@ -8,7 +8,7 @@ import Types
 import Urls
 
 import Control.Applicative                      ((<$>))
-import Control.Monad.STM                        (STM, atomically)
+import Control.Monad.STM                        (atomically)
 import qualified Data.ByteString.Char8  as C8
 import qualified STMContainers.Set      as S
 import qualified Data.Map               as M
