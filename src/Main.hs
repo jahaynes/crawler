@@ -12,13 +12,10 @@ import Urls
 import Workers
 
 import Control.Applicative              ((<$>))
-import Control.Concurrent               (threadDelay)
-import Control.Concurrent.STM           (atomically, newTVarIO, readTVar)
-import Control.Monad                    (unless)
+import Control.Concurrent.STM           (newTVarIO)
 import Data.List
 import Data.Maybe                       (mapMaybe)
 import qualified Data.Map               as Map
-import qualified Data.Set               as Set
 import Network.HTTP.Conduit             (newManager, tlsManagerSettings, mkManagerSettings)
 import Network.Connection               (TLSSettings (TLSSettingsSimple))
 import Safe
@@ -57,13 +54,11 @@ parseArgs [strStartUrl, includePattern] =
         Just startUrl -> Headless startUrl (pack includePattern)
         parseArgs _ = WithFrontEnd -}
 
-flags = Set.fromList ["-i", "-u"]
-
 parseArgs args = do
 
     print       . Map.unions
                 . mapMaybe (\gr -> Map.singleton <$> headMay gr <*> tailMay gr)
-                . filter (\gr -> maybe False (`Set.member` flags) (headMay gr))
+                . filter (\gr -> maybe False isFlag (headMay gr))
                 . groupBy (\a b -> isFlag a && not (isFlag b))
                 $ args
 
