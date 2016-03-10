@@ -6,6 +6,7 @@ import CountedQueue
 import qualified PoliteQueue as PQ
 import Fetch
 import Forms                            (selectFormOptions)
+import Includes                         (checkAgainstIncludePatterns)
 import Workers
 import Parse (parsePage, findPageRedirect)
 import Settings
@@ -149,8 +150,3 @@ processNextUrl crawlerState url = do
                         S.insert url (getUrlsInProgress crawlerState)
                         PQ.writeQueue url (getUrlQueue crawlerState)
         else return $ Failure "URL wasn't acceptable"
-
-checkAgainstIncludePatterns :: CrawlerState -> CanonicalUrl -> STM Bool
-checkAgainstIncludePatterns crawlerState (CanonicalUrl url) =
-    any (`isInfixOf` url) <$> setAsList (getUrlPatterns crawlerState)
-
