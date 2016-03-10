@@ -6,13 +6,10 @@ import Communication
 import CountedQueue
 import Crawl
 import Data.ByteString.Char8            (ByteString, pack)
-import MessageHandler                   (handleMessages)
 import qualified PoliteQueue    as PQ
 import Settings
 import Types
 import Urls
-import Output
-import Errors
 import Workers
 
 import Control.Applicative              ((<$>))
@@ -64,15 +61,7 @@ main = do
 
     crawlerState <- createCrawlerState
 
-    workers <- initialiseWorkers
-
-    setNumCrawlers crawlerState workers numStartCrawlers
-
-    forkWorker workers "Storage" $ storePages crawlerState
-
-    forkWorker workers "Logging" $ logErrors crawlerState
-
-    forkWorker workers "Message Handler" $ receiveMessagesWith (handleMessages crawlerState workers)
+    initialiseWorkers crawlerState
 
     startMode <- parseArgs <$> getArgs
 

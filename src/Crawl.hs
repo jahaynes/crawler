@@ -6,7 +6,6 @@ import CountedQueue
 import qualified PoliteQueue as PQ
 import Fetch
 import Forms                            (selectFormOptions)
-import Workers
 import Parse (parsePage, findPageRedirect)
 import Settings
 import Shared
