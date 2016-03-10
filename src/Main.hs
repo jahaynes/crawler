@@ -43,18 +43,6 @@ createCrawlerState = do
     urlsFailed <- M.newIO
     return $ CrawlerState formInstructions crawlerStatus urlQueue storeQueue loggingQueue manager cookieList urlPatterns urlsInProgress urlsCompleted urlsFailed
 
-{-
-data StartMode = WithFrontEnd
-               | Headless CanonicalUrl ByteString
-               | FailStartup String
-
-parseArgs :: [String] -> StartMode
-parseArgs [strStartUrl, includePattern] =
-    case canonicaliseString strStartUrl of
-        Nothing -> FailStartup $ "Could not canonicalise url: " ++ strStartUrl
-        Just startUrl -> Headless startUrl (pack includePattern)
-        parseArgs _ = WithFrontEnd -}
-
 optionMapFromArgs :: [String] -> OptionMap
 optionMapFromArgs =   OptionMap
                   <$> Map.unionsWith union
@@ -82,17 +70,6 @@ main = do
 
     run (getCrawlerStatus crawlerState)
 
-    {-
-    case startMode of
-        FailStartup msg -> error msg
-        WithFrontEnd -> run (getCrawlerStatus crawlerState)
-        Headless startUrl includePattern -> do
-            atomically . S.insert includePattern . getUrlPatterns $ crawlerState
-            launchSuccess <- processNextUrl crawlerState startUrl
-            case launchSuccess of
-                Success -> run (getCrawlerStatus crawlerState)
-                Failure reason -> error reason
-                -}
     where
     run crawlerStatus = do
         halted <- (== Halted) <$> (atomically . readTVar $ crawlerStatus)
