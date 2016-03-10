@@ -11,7 +11,9 @@ import Types
 import Workers
 
 import Control.Applicative              ((<$>), (<*>))
-import Control.Concurrent.STM           (newTVarIO)
+import Control.Concurrent               (threadDelay)
+import Control.Concurrent.STM           (newTVarIO, readTVar, atomically)
+import Control.Monad                    (unless)
 import Data.List
 import Data.Maybe                       (mapMaybe)
 import qualified Data.Map               as Map
@@ -78,9 +80,8 @@ main = do
 
     initialiseWorkers crawlerState
 
-    --startMode <- parseArgs <$> getArgs
+    run (getCrawlerStatus crawlerState)
 
-    
     {-
     case startMode of
         FailStartup msg -> error msg
@@ -91,10 +92,10 @@ main = do
             case launchSuccess of
                 Success -> run (getCrawlerStatus crawlerState)
                 Failure reason -> error reason
-
+                -}
     where
     run crawlerStatus = do
         halted <- (== Halted) <$> (atomically . readTVar $ crawlerStatus)
         unless halted $ do
             threadDelay 1000000
-            run crawlerStatus -}
+            run crawlerStatus
