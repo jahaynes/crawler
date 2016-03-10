@@ -3,7 +3,7 @@
 module Parse where
 
 import Forms
-import Shared (both)
+import Shared (both, trim)
 import Types
 import Urls
 
@@ -46,7 +46,3 @@ getRawHrefs onUrl = map (derelativise onUrl . trim . snd)
                   . filter (\(k,_) -> mk k == mk "href")
                   . concatMap (\(TagOpen _ attribs) -> attribs)
                   . filter (isTagOpenName "a") 
-
-    where
-    trim :: ByteString -> ByteString
-    trim = C8.reverse . C8.dropWhile isSpace . C8.reverse . C8.dropWhile isSpace

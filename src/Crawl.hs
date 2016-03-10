@@ -6,7 +6,6 @@ import CountedQueue
 import qualified PoliteQueue as PQ
 import Fetch
 import Forms                            (selectFormOptions)
-import Includes                         (checkAgainstIncludePatterns)
 import Parse                            (parsePage, findPageRedirect)
 import Settings
 import Shared
@@ -16,7 +15,7 @@ import Control.Applicative              ((<$>), (<*>))
 import Control.Concurrent               (ThreadId, myThreadId)
 import Control.Concurrent.STM           (STM, atomically, readTVar, modifyTVar')
 import Control.Monad                    (replicateM_, when)
-import Data.ByteString.Char8            (ByteString)
+import Data.ByteString.Char8            (ByteString, isInfixOf)
 import Data.List                        ((\\))
 import Data.Maybe                       (isJust)
 import Data.Time
@@ -149,3 +148,7 @@ processNextUrl crawlerState url = do
                         S.insert url (getUrlsInProgress crawlerState)
                         PQ.writeQueue url (getUrlQueue crawlerState)
         else return $ Failure "URL wasn't acceptable"
+
+checkAgainstIncludePatterns :: CrawlerState -> CanonicalUrl -> STM Bool
+checkAgainstIncludePatterns crawlerState (CanonicalUrl url) =
+    any (`isInfixOf` url) <$> setAsList (getUrlPatterns crawlerState)

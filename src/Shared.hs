@@ -3,6 +3,8 @@ module Shared where
 import Control.Concurrent               (ThreadId, forkIO, threadDelay)
 import Control.Concurrent.STM           (STM, atomically)
 import Control.Monad                    (when, unless)
+import Data.Char                        (isSpace)
+import qualified Data.ByteString.Char8  as C8
 import qualified ListT             as L
 import qualified STMContainers.Set as S
 import qualified STMContainers.Map as M
@@ -35,3 +37,6 @@ whileActive threadId threads threadsToStop a = go
             a
             threadDelay 1000
             go
+
+trim :: C8.ByteString -> C8.ByteString
+trim = C8.reverse . C8.dropWhile isSpace . C8.reverse . C8.dropWhile isSpace
