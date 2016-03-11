@@ -11,7 +11,9 @@ import Types
 import Workers
 
 import Control.Applicative              ((<$>), (<*>))
-import Control.Concurrent.STM           (newTVarIO)
+import Control.Concurrent               (threadDelay)
+import Control.Concurrent.STM           (newTVarIO, readTVar, atomically)
+import Control.Monad                    (unless)
 import Data.List
 import Data.Maybe                       (mapMaybe)
 import qualified Data.Map               as Map
@@ -41,18 +43,6 @@ createCrawlerState = do
     urlsFailed <- M.newIO
     return $ CrawlerState formInstructions crawlerStatus urlQueue storeQueue loggingQueue manager cookieList urlPatterns urlsInProgress urlsCompleted urlsFailed
 
-{-
-data StartMode = WithFrontEnd
-               | Headless CanonicalUrl ByteString
-               | FailStartup String
-
-parseArgs :: [String] -> StartMode
-parseArgs [strStartUrl, includePattern] =
-    case canonicaliseString strStartUrl of
-        Nothing -> FailStartup $ "Could not canonicalise url: " ++ strStartUrl
-        Just startUrl -> Headless startUrl (pack includePattern)
-        parseArgs _ = WithFrontEnd -}
-
 optionMapFromArgs :: [String] -> OptionMap
 optionMapFromArgs =   OptionMap
                   <$> Map.unionsWith union
@@ -78,23 +68,11 @@ main = do
 
     initialiseWorkers crawlerState
 
-    --startMode <- parseArgs <$> getArgs
-
-    
-    {-
-    case startMode of
-        FailStartup msg -> error msg
-        WithFrontEnd -> run (getCrawlerStatus crawlerState)
-        Headless startUrl includePattern -> do
-            atomically . S.insert includePattern . getUrlPatterns $ crawlerState
-            launchSuccess <- processNextUrl crawlerState startUrl
-            case launchSuccess of
-                Success -> run (getCrawlerStatus crawlerState)
-                Failure reason -> error reason
+    run (getCrawlerStatus crawlerState)
 
     where
     run crawlerStatus = do
         halted <- (== Halted) <$> (atomically . readTVar $ crawlerStatus)
         unless halted $ do
             threadDelay 1000000
-            run crawlerStatus -}
+            run crawlerStatus
