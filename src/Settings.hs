@@ -63,6 +63,7 @@ initialiseFormInstructions crawlerState (OptionMap optionMap) = do
             processed <- mapM loadFormInstructionMap formFiles
             let formInstructions = SuppliedFormActions $ M.unions processed
             atomically $ writeTVar (getFormInstructions crawlerState) formInstructions
+            putStrLn $ "Inserted Form instructions: \n" ++ show formInstructions 
 
     where
     loadFormInstructionMap fp = do
