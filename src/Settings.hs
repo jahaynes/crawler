@@ -5,6 +5,7 @@ module Settings where
 import Shared (both)
 import Prelude hiding (lookup)
 
+import Control.Concurrent.STM        (writeTVar, atomically)
 import qualified Data.ByteString.Char8   as C8
 import Data.List
 import Data.List.Split
@@ -54,12 +55,21 @@ shareCookie = const True
             , ""
             ]-}
 
-loadFormInstructions :: FilePath -> IO SuppliedFormActions
-loadFormInstructions fp = do
-    f <- readFile fp
-    let ls = filter (not . null) . splitOn [""] . lines $ f
-        instructions = mapMaybe chunkToInstruction ls
-    return . SuppliedFormActions $ M.fromList instructions
+initialiseFormInstructions :: CrawlerState -> OptionMap -> IO ()
+initialiseFormInstructions crawlerState (OptionMap optionMap) = do
+    case M.lookup (OptionFlag "-ff") optionMap of
+        Nothing -> return ()
+        Just formFiles -> do
+            processed <- mapM loadFormInstructionMap formFiles
+            let formInstructions = SuppliedFormActions $ M.unions processed
+            atomically $ writeTVar (getFormInstructions crawlerState) formInstructions
+
+    where
+    loadFormInstructionMap fp = do
+        f <- readFile fp
+        let ls = filter (not . null) . splitOn [""] . lines $ f
+            instructions = mapMaybe chunkToInstruction ls
+        return $ M.fromList instructions
 
 chunkToInstruction :: [String] -> Maybe (Label, (UrlRegex, FormActionRegex, FormParameters))
 chunkToInstruction chunk = do

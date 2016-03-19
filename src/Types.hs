@@ -23,7 +23,7 @@ import STMContainers.Set                (Set, stream)
 type Crawled = (ThreadId, [CanonicalUrl], ByteString)
 
 data CrawlerState = CrawlerState {
-    getFormInstructions :: SuppliedFormActions,
+    getFormInstructions :: TVar SuppliedFormActions,
     getCrawlerStatus :: TVar CrawlerStatus,
     getUrlQueue :: PoliteQueue,  
     getStoreQueue :: CountedQueue Crawled,
