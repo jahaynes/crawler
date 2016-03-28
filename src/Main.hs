@@ -28,7 +28,7 @@ import System.Remote.Monitoring         (forkServer)
 
 createCrawlerState :: IO CrawlerState
 createCrawlerState = do
-    formInstructions <- loadFormInstructions "form_instructions.cfg"
+    formInstructions <- newTVarIO (SuppliedFormActions Map.empty)
     crawlerStatus <- newTVarIO RunningStatus
     urlQueue <- PQ.newIO
     storeQueue <- newQueueIO (Bounded 32)
@@ -63,6 +63,8 @@ main = do
     _ <- forkServer "localhost" 8000
 
     crawlerState <- createCrawlerState
+
+    initialiseFormInstructions crawlerState optionMap
 
     initialiseIncludes crawlerState optionMap
 

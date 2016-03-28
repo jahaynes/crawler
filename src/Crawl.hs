@@ -89,10 +89,10 @@ crawlUrls workers crawlerState threadId = do
                         formResponse <- getWithRedirects (getManager crawlerState) moreCookies (GetRequest metaRefreshUrl)
                         processResponse formResponse nextUrl moreCookies
 
-                    Nothing ->
+                    Nothing -> do
                         let (hrefErrors, nextHrefs, forms) = parsePage redirects parsedTags
-                        in
-                        case selectFormOptions (getFormInstructions crawlerState) forms of
+                        formInstructions <- atomically . readTVar . getFormInstructions $ crawlerState
+                        case selectFormOptions formInstructions forms of
 
                             Just formRequest -> do
 
