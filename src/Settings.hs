@@ -56,21 +56,22 @@ shareCookie = const True
             ]-}
 
 initialiseFormInstructions :: Crawler -> OptionMap -> IO ()
-initialiseFormInstructions crawlerState (OptionMap optionMap) = do
+initialiseFormInstructions crawlerState (OptionMap optionMap) =
+
     case M.lookup (OptionFlag "-ff") optionMap of
         Nothing -> return ()
         Just formFiles -> do
-            processed <- mapM loadFormInstructionMap formFiles
-            let formInstructions = SuppliedFormActions $ M.unions processed
+            formFileContents <- mapM readFile formFiles
+            let processed = map processFormInstructions formFiles
+                formInstructions = SuppliedFormActions $ M.unions processed
             atomically $ writeTVar (getFormInstructions crawlerState) formInstructions
             putStrLn $ "Inserted Form instructions: \n" ++ show formInstructions 
 
     where
-    loadFormInstructionMap fp = do
-        f <- readFile fp
-        let ls = filter (not . null) . splitOn [""] . lines $ f
+    processFormInstructions formFile = do
+        let ls = filter (not . null) . splitOn [""] . lines $ formFile
             instructions = mapMaybe chunkToInstruction ls
-        return $ M.fromList instructions
+        M.fromList instructions
 
 chunkToInstruction :: [String] -> Maybe (Label, (UrlRegex, FormActionRegex, FormParameters))
 chunkToInstruction chunk = do
