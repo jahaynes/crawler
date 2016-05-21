@@ -5,18 +5,20 @@ module Output where
 import CountedQueue                     (sourceQueue)
 import Types
 import Control.Concurrent               (ThreadId)
+import Control.Monad.IO.Class           (liftIO)
 import Control.Monad.Trans.Resource     (runResourceT)
 import Data.ByteString.Char8 as BS      (ByteString, pack, intercalate, concat)
 import Data.Conduit
 import Data.Conduit.Binary
 import qualified Data.Conduit.List as CL
 
-storePages :: CrawlerState -> IO ()
-storePages crawlerState =  runResourceT
-                        $  sourceQueue (getStoreQueue crawlerState)
-                        $$ CL.map (\(tid, redirects, contents) -> (tid, map (\(CanonicalUrl url) -> url) redirects))
-                        =$ CL.map redirectsLine
-                        =$ sinkFile "stored.log"
+storePages :: CrawlerState -> (CrawledDocument -> IO a) -> IO ()
+storePages crawlerState storeFunc = do
+    x <- runResourceT
+        $  sourceQueue (getStoreQueue crawlerState)
+        $$ awaitForever $ liftIO . storeFunc
+
+    return ()
 
     where
     redirectsLine :: (ThreadId, [ByteString]) -> ByteString

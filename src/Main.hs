@@ -53,6 +53,9 @@ optionMapFromArgs =   OptionMap
     where
     isFlag x = length x > 1 && head x == '-'
 
+defaultStorage crawledDocument = do
+    print crawledDocument
+
 main :: IO ()
 main = do
 
@@ -68,7 +71,7 @@ main = do
 
     initialiseIncludes crawlerState optionMap
 
-    initialiseWorkers crawlerState
+    initialiseWorkers crawlerState defaultStorage
 
     run (getCrawlerStatus crawlerState)
 
