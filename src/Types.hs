@@ -30,7 +30,7 @@ type StoreFunction = CrawledDocument -> IO ()
 
 type LogFunction = Loggable -> IO ()
 
-data CrawlerState = CrawlerState {
+data Crawler = Crawler {
     getFormInstructions :: TVar SuppliedFormActions,
     getCrawlerStatus :: TVar CrawlerStatus,
     getUrlQueue :: PoliteQueue,  

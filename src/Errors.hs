@@ -9,8 +9,8 @@ import Control.Monad.IO.Class           (liftIO)
 import Control.Monad.Trans.Resource     (runResourceT)
 import Data.Conduit
 
-logErrors :: CrawlerState -> LogFunction -> IO ()
-logErrors crawlerState logFunction =
-    runResourceT $ sourceQueue (getLogQueue crawlerState)
+logErrors :: Crawler -> LogFunction -> IO ()
+logErrors crawler logFunction =
+    runResourceT $ sourceQueue (getLogQueue crawler)
                  $$ awaitForever $ liftIO . logFunction
 

@@ -18,8 +18,8 @@ import Network.HTTP.Conduit
 import qualified Data.ByteString.Char8      as C8
 import qualified STMContainers.Set          as S
 
-handleMessages :: CrawlerState -> Workers -> Message -> IO Message
-handleMessages crawlerState workers (CommandMessage c) = fmap AnswerMessage . handleCommand $ c
+handleMessages :: Crawler -> Workers -> Message -> IO Message
+handleMessages crawler workers (CommandMessage c) = fmap AnswerMessage . handleCommand $ c
     where
 
     {- Add a URL -}
@@ -27,7 +27,7 @@ handleMessages crawlerState workers (CommandMessage c) = fmap AnswerMessage . ha
         case canonicaliseByteString url of
             Nothing -> return . CouldntAnswer $ "Couldn't canonicalise url: " ++ show url
             Just x -> do
-                accepted <- processNextUrl crawlerState x
+                accepted <- processNextUrl crawler x
                 print accepted
                 return Confirmation
 
@@ -37,7 +37,7 @@ handleMessages crawlerState workers (CommandMessage c) = fmap AnswerMessage . ha
     {- Set the URL Patterns -}
     handleCommand (SetUrlPatterns ps) = do
         atomically $ do
-            let patterns = getUrlPatterns crawlerState
+            let patterns = getUrlPatterns crawler
             existing <- setAsList patterns
             mapM_ (`S.delete` patterns) existing
             mapM_ (`S.insert` patterns) ps
@@ -49,16 +49,16 @@ handleMessages crawlerState workers (CommandMessage c) = fmap AnswerMessage . ha
     handleCommand Idle = do
 
         (willIdle, oldStatus) <- atomically $ do
-            status <- readTVar (getCrawlerStatus crawlerState)
+            status <- readTVar (getCrawlerStatus crawler)
             case status of
                  HaltingStatus -> return (False, status)
                  _ -> do
-                     modifyTVar' (getCrawlerStatus crawlerState) (const IdleStatus) 
+                     modifyTVar' (getCrawlerStatus crawler) (const IdleStatus) 
                      return (True, status)
         if willIdle
             then do
                 putStrLn $ "Switching from " ++ show oldStatus ++ " to idle..."
-                setNumCrawlers crawlerState workers 0
+                setNumCrawlers crawler workers 0
                 return Confirmation
             else do
                 let msg = "Can't start idling from state " ++ show oldStatus
@@ -69,37 +69,37 @@ handleMessages crawlerState workers (CommandMessage c) = fmap AnswerMessage . ha
     handleCommand Halt = do
         
         willHalt <- atomically $ do
-            status <- readTVar (getCrawlerStatus crawlerState)
+            status <- readTVar (getCrawlerStatus crawler)
             case status of
                 HaltingStatus -> return False
                 _ -> do
-                    modifyTVar' (getCrawlerStatus crawlerState) (const HaltingStatus)
+                    modifyTVar' (getCrawlerStatus crawler) (const HaltingStatus)
                     return True
         if willHalt
             then do
                 putStrLn "Halting..."
-                setNumCrawlers crawlerState workers 0
+                setNumCrawlers crawler workers 0
                 return Confirmation
             else do
                 let msg = "Can't halt (was already halting)"
                 putStrLn msg
                 return $ CouldntAnswer msg
 
-handleMessages crawlerState workers (QuestionMessage q) = AnswerMessage <$> handleQuestion q
+handleMessages crawler workers (QuestionMessage q) = AnswerMessage <$> handleQuestion q
     where
 
     {- Ask the size of the URL Queue -}
     handleQuestion (GetQueueSize queue) =
         case queue of
-            UrlQueue -> QueueSize <$> (atomically . PQ.size . getUrlQueue $ crawlerState)
-            StoreQueue -> returnQueueSize . getStoreQueue $ crawlerState
-            ErrorQueue -> returnQueueSize . getLogQueue $ crawlerState
+            UrlQueue -> QueueSize <$> (atomically . PQ.size . getUrlQueue $ crawler)
+            StoreQueue -> returnQueueSize . getStoreQueue $ crawler
+            ErrorQueue -> returnQueueSize . getLogQueue $ crawler
 
         where
         returnQueueSize = fmap QueueSize . atomically . size
 
     {- Ask for the Crawler's current Status -}
-    handleQuestion GetCrawlerStatus = CrawlerStatus <$> (atomically . readTVar . getCrawlerStatus $ crawlerState)
+    handleQuestion GetCrawlerStatus = CrawlerStatus <$> (atomically . readTVar . getCrawlerStatus $ crawler)
 
     {- Get the workers' statuses -}
     handleQuestion GetWorkerStatuses = do
@@ -111,7 +111,7 @@ handleMessages crawlerState workers (QuestionMessage q) = AnswerMessage <$> hand
 
     {- Get a report of the shared cookies -}
     handleQuestion GetCookieReport = do
-        cookies <- atomically . readTVar . getCookieList $ crawlerState
+        cookies <- atomically . readTVar . getCookieList $ crawler
 
         --let byDomain = groupBy ((==) `on` cookie_domain) cookies
 

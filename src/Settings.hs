@@ -55,7 +55,7 @@ shareCookie = const True
             , ""
             ]-}
 
-initialiseFormInstructions :: CrawlerState -> OptionMap -> IO ()
+initialiseFormInstructions :: Crawler -> OptionMap -> IO ()
 initialiseFormInstructions crawlerState (OptionMap optionMap) = do
     case M.lookup (OptionFlag "-ff") optionMap of
         Nothing -> return ()

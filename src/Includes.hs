@@ -14,8 +14,8 @@ import qualified STMContainers.Set      as S
 import qualified Data.Map               as M
 import Data.Maybe
 
-initialiseIncludes :: CrawlerState -> OptionMap -> IO ()
-initialiseIncludes crawlerState (OptionMap optionMap) = do
+initialiseIncludes :: Crawler -> OptionMap -> IO ()
+initialiseIncludes crawler (OptionMap optionMap) = do
 
     case M.lookup (OptionFlag "-i") optionMap of
         Nothing -> return ()
@@ -44,10 +44,10 @@ initialiseIncludes crawlerState (OptionMap optionMap) = do
     where
     insertStartUrls =
         mapM_ (\cu@(CanonicalUrl u)-> do
-            processNextUrl crawlerState cu
+            processNextUrl crawler cu
             C8.putStrLn $ C8.concat ["Added Url: ", u])
 
     insertIncludes =
         mapM_ (\i -> do
-            atomically . S.insert i . getUrlPatterns $ crawlerState
+            atomically . S.insert i . getUrlPatterns $ crawler
             C8.putStrLn $ C8.concat ["Added pattern: ", i])
