@@ -78,7 +78,7 @@ instance Show CanonicalUrl where
 data Loggable = LoggableWarning CanonicalUrl ByteString
               | LoggableError CanonicalUrl ByteString deriving Show
 
-type Reason = String
+type Reason = ByteString
 
 data Success = Success | Failure Reason deriving Show
 
