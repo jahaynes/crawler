@@ -2,6 +2,7 @@
 
 module Includes where
 
+import CountedQueue                             (writeQueue)
 import Crawl
 import Shared
 import Types
@@ -47,7 +48,8 @@ initialiseIncludes crawler (OptionMap optionMap) = do
             result <- processNextUrl crawler cu
             case result of
                 Success -> C8.putStrLn $ C8.concat ["Added Url: ", u]
-                (Failure reason) -> C8.putStrLn $ C8.concat ["Could not add Url: ", u, "\n", "Reason: ", reason])
+                Failure reason -> atomically $ writeQueue (getLogQueue crawler) (LoggableError cu (C8.concat ["Could not add Url: ", u, "\n", "Reason: ", reason])))
+
 
     insertIncludes =
         mapM_ (\i -> do
