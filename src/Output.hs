@@ -9,7 +9,7 @@ import Control.Monad.Trans.Resource     (runResourceT)
 import Data.Conduit
 
 storePages :: CrawlerState -> StoreFunction -> IO ()
-storePages crawlerState storeFunc = do
+storePages crawlerState storeFunc =
     runResourceT
         $  sourceQueue (getStoreQueue crawlerState)
         $$ awaitForever $ liftIO . storeFunc

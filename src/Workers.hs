@@ -13,8 +13,8 @@ import Control.Concurrent.STM               (STM, atomically)
 import qualified STMContainers.Set  as S
 import qualified STMContainers.Map  as M
 
-initialiseWorkers :: CrawlerState -> StoreFunction -> IO ()
-initialiseWorkers crawlerState storeFunc = do
+initialiseWorkers :: CrawlerState -> StoreFunction -> LogFunction -> IO ()
+initialiseWorkers crawlerState storeFunc logFunc = do
 
     crawlerThreads <- S.newIO
     crawlerThreadsToStop <- S.newIO 
@@ -33,7 +33,7 @@ initialiseWorkers crawlerState storeFunc = do
 
     forkWorker workers "Storage" $ storePages crawlerState storeFunc
 
-    forkWorker workers "Logging" $ logErrors crawlerState
+    forkWorker workers "Logging" $ logErrors crawlerState logFunc
 
     forkWorker workers "Message Handler" $ receiveMessagesWith (handleMessages crawlerState workers)                            
 

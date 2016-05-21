@@ -28,6 +28,8 @@ data CrawledDocument = CrawledDocument
 
 type StoreFunction = CrawledDocument -> IO ()
 
+type LogFunction = Loggable -> IO ()
+
 data CrawlerState = CrawlerState {
     getFormInstructions :: TVar SuppliedFormActions,
     getCrawlerStatus :: TVar CrawlerStatus,

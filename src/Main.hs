@@ -24,6 +24,7 @@ import qualified STMContainers.Set as S
 import qualified STMContainers.Map as M
 
 import System.Environment               (getArgs)
+import System.IO
 import System.Remote.Monitoring         (forkServer)
 
 createCrawlerState :: IO CrawlerState
@@ -54,15 +55,17 @@ optionMapFromArgs =   OptionMap
     isFlag x = length x > 1 && head x == '-'
 
 defaultStorage :: StoreFunction
-defaultStorage crawledDocument = do
+defaultStorage crawledDocument =
     print . head . getRedirectChain $ crawledDocument
+
+defaultLogging :: LogFunction
+defaultLogging loggable = do
+    hPutStrLn stderr $ show loggable
 
 main :: IO ()
 main = do
 
-    args <- getArgs
-
-    let optionMap = optionMapFromArgs args
+    optionMap <- optionMapFromArgs <$> getArgs
 
     _ <- forkServer "localhost" 8000
 
@@ -72,7 +75,7 @@ main = do
 
     initialiseIncludes crawlerState optionMap
 
-    initialiseWorkers crawlerState defaultStorage
+    initialiseWorkers crawlerState defaultStorage defaultLogging
 
     run (getCrawlerStatus crawlerState)
 
