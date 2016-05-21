@@ -53,8 +53,9 @@ optionMapFromArgs =   OptionMap
     where
     isFlag x = length x > 1 && head x == '-'
 
+defaultStorage :: StoreFunction
 defaultStorage crawledDocument = do
-    print crawledDocument
+    print . head . getRedirectChain $ crawledDocument
 
 main :: IO ()
 main = do

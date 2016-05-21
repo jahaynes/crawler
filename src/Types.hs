@@ -26,6 +26,8 @@ data CrawledDocument = CrawledDocument
                      , getThreadId :: ThreadId
                      } deriving Show
 
+type StoreFunction = CrawledDocument -> IO ()
+
 data CrawlerState = CrawlerState {
     getFormInstructions :: TVar SuppliedFormActions,
     getCrawlerStatus :: TVar CrawlerStatus,

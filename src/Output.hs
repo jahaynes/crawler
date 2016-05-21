@@ -8,10 +8,8 @@ import Control.Monad.IO.Class           (liftIO)
 import Control.Monad.Trans.Resource     (runResourceT)
 import Data.Conduit
 
-storePages :: CrawlerState -> (CrawledDocument -> IO a) -> IO ()
+storePages :: CrawlerState -> StoreFunction -> IO ()
 storePages crawlerState storeFunc = do
-    x <- runResourceT
+    runResourceT
         $  sourceQueue (getStoreQueue crawlerState)
         $$ awaitForever $ liftIO . storeFunc
-
-    return ()
