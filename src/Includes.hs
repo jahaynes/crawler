@@ -44,8 +44,10 @@ initialiseIncludes crawler (OptionMap optionMap) = do
     where
     insertStartUrls =
         mapM_ (\cu@(CanonicalUrl u)-> do
-            processNextUrl crawler cu
-            C8.putStrLn $ C8.concat ["Added Url: ", u])
+            result <- processNextUrl crawler cu
+            case result of
+                Success -> C8.putStrLn $ C8.concat ["Added Url: ", u]
+                (Failure reason) -> C8.putStrLn $ C8.concat ["Could not add Url: ", u, "\n", "Reason: ", reason])
 
     insertIncludes =
         mapM_ (\i -> do

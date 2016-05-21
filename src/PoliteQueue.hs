@@ -2,6 +2,7 @@ module PoliteQueue where
 
 import Urls (getDomain)
 import Types
+import Data.ByteString.Char8        as C8
 import Data.Maybe                   (fromJust)
 import Control.Applicative          ((<$>))
 import Control.Concurrent           (ThreadId)
@@ -25,7 +26,7 @@ writeQueue :: CanonicalUrl -> PoliteQueue -> STM Success
 writeQueue url politeQueue = do
     TV.modifyTVar' (getSize politeQueue) (+1)
     case getDomain url of
-        Nothing -> return . Failure $ "Could not get domain from url: " ++ show url
+        Nothing -> return . Failure . C8.pack $ "Could not get domain from url: " ++ show url
         Just domain -> do
             mQueue <- M.lookup domain (getDomainMapping politeQueue)
             case mQueue of
