@@ -3,9 +3,10 @@
 module Crawl where
 
 import CountedQueue
+import Communication                    (CrawlerStatus(..))
 import qualified PoliteQueue as PQ
 import Fetch
-import Forms                            (selectFormOptions)
+import Forms                            (emptyFormActions, selectFormOptions)
 import Parse                            (parsePage, findPageRedirect)
 import Settings
 import Shared
@@ -13,19 +14,37 @@ import Types
 
 import Control.Applicative              ((<$>), (<*>))
 import Control.Concurrent               (ThreadId, myThreadId)
-import Control.Concurrent.STM           (STM, atomically, readTVar, modifyTVar')
+import Control.Concurrent.STM           (STM, atomically, readTVar, modifyTVar', newTVarIO)
 import Control.Monad                    (replicateM_, when)
 import Data.ByteString.Char8            (ByteString, isInfixOf)
 import Data.List                        ((\\))
 import Data.Maybe                       (isJust)
 import Data.Time
-import Network.HTTP.Conduit             (Cookie)
+import Network.HTTP.Conduit             (Cookie, newManager, tlsManagerSettings, mkManagerSettings)
+import Network.Connection               (TLSSettings (TLSSettingsSimple))
 import qualified ListT             as L
 import qualified STMContainers.Set as S
 import qualified STMContainers.Map as M
 import Text.HTML.TagSoup.Fast   (parseTags)
 
-setNumCrawlers :: CrawlerState -> Workers -> Int -> IO ()
+createCrawler :: IO Crawler
+createCrawler = do
+    formInstructions <- newTVarIO emptyFormActions
+    crawlerStatus <- newTVarIO RunningStatus
+    urlQueue <- PQ.newIO
+    storeQueue <- newQueueIO (Bounded 32)
+    loggingQueue <- newQueueIO (Bounded 128)
+    manager <- newManager (if ignoreBadHttpsCerts
+                               then mkManagerSettings (TLSSettingsSimple True False False) Nothing
+                               else tlsManagerSettings)
+    cookieList <- newTVarIO []
+    urlPatterns <- S.newIO
+    urlsInProgress <- S.newIO
+    urlsCompleted <- S.newIO
+    urlsFailed <- M.newIO
+    return $ Crawler formInstructions crawlerStatus urlQueue storeQueue loggingQueue manager cookieList urlPatterns urlsInProgress urlsCompleted urlsFailed
+
+setNumCrawlers :: Crawler -> Workers -> Int -> IO ()
 setNumCrawlers crawlerState workers desiredNum = do
 
     threadsToAdd <- atomically $ do
@@ -54,7 +73,7 @@ setNumCrawlers crawlerState workers desiredNum = do
     getActiveCrawlerCount :: STM Int
     getActiveCrawlerCount = (-) <$> sizeOfSet (getCrawlerThreads workers) <*> sizeOfSet (getCrawlerThreadsToStop workers)
 
-crawlUrls :: Workers -> CrawlerState -> ThreadId -> IO ()
+crawlUrls :: Workers -> Crawler -> ThreadId -> IO ()
 crawlUrls workers crawlerState threadId = do
 
     whileActive threadId (getCrawlerThreads workers) (getCrawlerThreadsToStop workers) $ do
@@ -135,7 +154,7 @@ crawlUrls workers crawlerState threadId = do
 
     resetThreadClock nextUrl = getCurrentTime >>= \c -> atomically . M.insert (c, nextUrl) threadId . getThreadClocks $ workers
         
-processNextUrl :: CrawlerState -> CanonicalUrl -> IO Success
+processNextUrl :: Crawler -> CanonicalUrl -> IO Success
 processNextUrl crawlerState url = do
     isAcceptable <- atomically $ checkAgainstIncludePatterns crawlerState url
     if isAcceptable
@@ -154,6 +173,6 @@ processNextUrl crawlerState url = do
                         PQ.writeQueue url (getUrlQueue crawlerState)
         else return $ Failure "URL wasn't acceptable"
 
-checkAgainstIncludePatterns :: CrawlerState -> CanonicalUrl -> STM Bool
+checkAgainstIncludePatterns :: Crawler -> CanonicalUrl -> STM Bool
 checkAgainstIncludePatterns crawlerState (CanonicalUrl url) =
     any (`isInfixOf` url) <$> setAsList (getUrlPatterns crawlerState)

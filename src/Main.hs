@@ -3,46 +3,25 @@
 module Main where
 
 import Communication
-import CountedQueue
+import Crawl
 import Includes
-import qualified PoliteQueue    as PQ
 import Settings
 import Types
 import Workers
 
 import Control.Applicative              ((<$>), (<*>))
 import Control.Concurrent               (threadDelay)
-import Control.Concurrent.STM           (newTVarIO, readTVar, atomically)
+import Control.Concurrent.STM           (atomically, readTVar)
 import Control.Monad                    (unless)
 import Data.List
 import Data.Maybe                       (mapMaybe)
 import qualified Data.Map               as Map
-import Network.HTTP.Conduit             (newManager, tlsManagerSettings, mkManagerSettings)
-import Network.Connection               (TLSSettings (TLSSettingsSimple))
+
 import Safe
-import qualified STMContainers.Set as S
-import qualified STMContainers.Map as M
 
 import System.Environment               (getArgs)
 import System.IO
 import System.Remote.Monitoring         (forkServer)
-
-createCrawlerState :: IO CrawlerState
-createCrawlerState = do
-    formInstructions <- newTVarIO (SuppliedFormActions Map.empty)
-    crawlerStatus <- newTVarIO RunningStatus
-    urlQueue <- PQ.newIO
-    storeQueue <- newQueueIO (Bounded 32)
-    loggingQueue <- newQueueIO (Bounded 128)
-    manager <- newManager (if ignoreBadHttpsCerts
-                               then mkManagerSettings (TLSSettingsSimple True False False) Nothing
-                               else tlsManagerSettings)
-    cookieList <- newTVarIO []
-    urlPatterns <- S.newIO
-    urlsInProgress <- S.newIO
-    urlsCompleted <- S.newIO
-    urlsFailed <- M.newIO
-    return $ CrawlerState formInstructions crawlerStatus urlQueue storeQueue loggingQueue manager cookieList urlPatterns urlsInProgress urlsCompleted urlsFailed
 
 optionMapFromArgs :: [String] -> OptionMap
 optionMapFromArgs =   OptionMap
@@ -69,15 +48,15 @@ main = do
 
     _ <- forkServer "localhost" 8000
 
-    crawlerState <- createCrawlerState
+    crawler <- createCrawler
 
-    initialiseFormInstructions crawlerState optionMap
+    initialiseFormInstructions crawler optionMap
 
-    initialiseIncludes crawlerState optionMap
+    initialiseIncludes crawler optionMap
 
-    initialiseWorkers crawlerState defaultStorage defaultLogging
+    initialiseWorkers crawler defaultStorage defaultLogging
 
-    run (getCrawlerStatus crawlerState)
+    run (getCrawlerStatus crawler)
 
     where
     run crawlerStatus = do

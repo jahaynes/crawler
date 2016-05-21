@@ -14,6 +14,9 @@ import Text.HTML.TagSoup
 import Text.Regex.PCRE          ((=~))
 import Network.HTTP.Types       (Method, methodGet)
 
+emptyFormActions :: SuppliedFormActions
+emptyFormActions = SuppliedFormActions M.empty
+
 getForms :: CanonicalUrl -> [Tag ByteString] -> [Form]
 getForms onUrl = map asForm . isolateForms
 
