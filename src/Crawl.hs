@@ -126,7 +126,12 @@ crawlUrls workers crawlerState threadId = do
     successfulDownload attemptedUrl redirects bodyData = do
         S.delete attemptedUrl (getUrlsInProgress crawlerState)
         mapM_ (\u -> S.insert u (getUrlsCompleted crawlerState)) redirects
-        writeQueue (getStoreQueue crawlerState) (threadId, redirects, bodyData)
+        let crawledDocument = CrawledDocument
+                            { getRedirectChain = redirects
+                            , getContent = bodyData
+                            , getThreadId = threadId
+                            }
+        writeQueue (getStoreQueue crawlerState) crawledDocument
 
     resetThreadClock nextUrl = getCurrentTime >>= \c -> atomically . M.insert (c, nextUrl) threadId . getThreadClocks $ workers
         

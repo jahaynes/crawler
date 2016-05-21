@@ -20,13 +20,21 @@ import Network.HTTP.Types               (Method)
 import STMContainers.Map                (Map)
 import STMContainers.Set                (Set, stream)
 
-type Crawled = (ThreadId, [CanonicalUrl], ByteString)
+data CrawledDocument = CrawledDocument
+                     { getRedirectChain :: [CanonicalUrl]
+                     , getContent :: ByteString
+                     , getThreadId :: ThreadId
+                     } deriving Show
+
+type StoreFunction = CrawledDocument -> IO ()
+
+type LogFunction = Loggable -> IO ()
 
 data CrawlerState = CrawlerState {
     getFormInstructions :: TVar SuppliedFormActions,
     getCrawlerStatus :: TVar CrawlerStatus,
     getUrlQueue :: PoliteQueue,  
-    getStoreQueue :: CountedQueue Crawled,
+    getStoreQueue :: CountedQueue CrawledDocument,
     getLogQueue :: CountedQueue Loggable,
     getManager :: Manager,
     getCookieList :: TVar [Cookie],
