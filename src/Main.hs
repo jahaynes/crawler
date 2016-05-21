@@ -59,8 +59,8 @@ defaultStorage crawledDocument =
     print . head . getRedirectChain $ crawledDocument
 
 defaultLogging :: LogFunction
-defaultLogging loggable = do
-    hPutStrLn stderr $ show loggable
+defaultLogging loggable =
+    hPrint stderr loggable
 
 main :: IO ()
 main = do
