@@ -10,7 +10,6 @@ import Data.CaseInsensitive         (mk)
 import Control.Applicative          ((<$>))
 import Control.Monad                (when)
 import Control.Monad.IO.Class       (liftIO)
-import Control.Exception.Lifted     (try)
 import Control.Monad.Trans.Resource (ResourceT, runResourceT)
 import Data.ByteString.Char8        (unpack)
 import Data.ByteString.Lazy.Char8   (toStrict)
@@ -28,7 +27,7 @@ import Network.HTTP.Types
 makeRequest :: [Cookie] -> DownloadRequest -> Either SomeException Request 
 makeRequest requestCookies downloadRequest = do
 
-    req <- parseUrl . show . getUrl $ downloadRequest
+    req <- parseRequest . show . getUrl $ downloadRequest
 
     return . applyParametersFrom downloadRequest
            . basicAuthSettings
@@ -100,15 +99,16 @@ getWithRedirects man requestCookies downloadRequest = do
                        Request ->
                        [Maybe CanonicalUrl] ->
                        (ResourceT IO) (Either String DownloadSource, [Maybe CanonicalUrl])
-    followRedirects 0     _ redirs = return (Left "Too many redirects", redirs)
+    followRedirects 0   _ redirs = return (Left "Too many redirects", redirs)
     followRedirects n req redirs = do
-        eitherResponse <- try (http req man)
-        case eitherResponse of
-            Right r -> return (Right r, redirs)
-            Left (StatusCodeException status rheaders cj) -> do
-                let code = statusCode status
-                    mRedirReq = getRedirectedRequest req rheaders cj code
-                case mRedirReq of
+
+        res <- http req man
+
+        case statusCode . responseStatus $ res of
+            302 -> do
+                let resHeaders = responseHeaders res
+                    resCookieJar = responseCookieJar res
+                case getRedirectedRequest req resHeaders resCookieJar 302 of
                     Just redirReq -> followRedirects (n-1) redirReq (canonicaliseRequest redirReq:redirs)
-                    Nothing -> return (Left ("Code: " ++ show code), redirs)
-            Left e -> return (Left ("followRedirects: " ++ show e), redirs)
+                    Nothing -> return (Left "Could not create redirect request", redirs)
+            _   -> return (Right res, redirs)
