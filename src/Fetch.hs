@@ -45,14 +45,19 @@ makeRequest requestCookies downloadRequest = do
         | mk formMethod == mk methodPost = urlEncodedBody params
         | otherwise                      = setQueryString (map (\(k,v) -> (k,Just v)) params) 
 
+{- Big TODO - make a Debug type to represent Left,
+   containing cookies, canonicalUrls, error messages, etc. 
+
+   TODO - do it before merging and recapture all those Lefts we dropped -}
+
 getWithRedirects :: Manager
                  -> [Cookie]
                  -> DownloadRequest
-                 -> IO (Either String (BS.ByteString, [Cookie]), [CanonicalUrl])
+                 -> IO (Either String (BS.ByteString, [Cookie], [CanonicalUrl]))
 getWithRedirects man requestCookies downloadRequest = do
 
     case makeRequest requestCookies downloadRequest of
-        Left ex -> return (Left $ "Could not make request from " ++ show downloadRequest ++ "\nThe reason was: " ++ show ex, [])
+        Left ex -> return (Left $ "Could not make request from " ++ show downloadRequest ++ "\nThe reason was: " ++ show ex)
 
         Right req -> do
 
@@ -75,7 +80,7 @@ getWithRedirects man requestCookies downloadRequest = do
 
                             when (length redirects < length mRedirects + 1) (putStrLn "Warning, not all redirects were parsed!")
 
-                            return (Right (content, responseCookies), dedupe redirects)
+                            return (Right (content, responseCookies, dedupe redirects))
 
     where
     dedupe :: [CanonicalUrl] -> [CanonicalUrl]
@@ -84,7 +89,7 @@ getWithRedirects man requestCookies downloadRequest = do
     downloadEnoughContent :: DownloadSource -> EitherT String IO BS.ByteString
     downloadEnoughContent response =
 
-        case getContentLength response of
+        case getContentLength of
             Just x | x <= maxContentLength -> downloadBodySource response
                    | otherwise -> left "Too big"
             Nothing -> downloadBodySource response
@@ -93,8 +98,8 @@ getWithRedirects man requestCookies downloadRequest = do
         downloadBodySource :: DownloadSource -> EitherT String IO BS.ByteString
         downloadBodySource res = right =<< (liftIO . runResourceT $ responseBody res $$+- CL.map (BS.take maxContentLength) $= (toStrict <$> sinkLbs))
 
-        getContentLength :: Response a -> Maybe Int
-        getContentLength response =
+        getContentLength :: Maybe Int
+        getContentLength =
             case filter (\(k,_) -> mk k == mk hContentLength) . responseHeaders $ response of
                 [] -> Nothing
                 ((_,x):_) -> readMay $ unpack x

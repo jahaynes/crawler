@@ -83,14 +83,14 @@ crawlUrls workers crawlerState threadId =
 
         resetThreadClock nextUrl
 
-        (mBodyData, redirects) <- getWithRedirects (getManager crawlerState) cookiesToSend (GetRequest nextUrl)
+        eDownloadResult <- getWithRedirects (getManager crawlerState) cookiesToSend (GetRequest nextUrl)
 
-        case mBodyData of
+        case eDownloadResult of
             Left err -> do
                 putStrLn $ "Failed to download (thread " ++ show threadId ++ ")"
                 print err
                 atomically $ failedDownload nextUrl
-            Right (bodyData, responseCookies) ->
+            Right (bodyData, responseCookies, redirects) ->
                 processResponse bodyData redirects responseCookies nextUrl cookiesToSend
 
     where
