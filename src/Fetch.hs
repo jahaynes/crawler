@@ -56,12 +56,12 @@ getWithRedirects man requestCookies downloadRequest = do
 
         Right req -> do
 
-            (mResponse, mRedirects) <- followRedirects maxRedirects req [canonicaliseRequest req]
+            mResponseAndRedirects <- followRedirects maxRedirects req [canonicaliseRequest req]
 
-            case mResponse of
+            case mResponseAndRedirects of
                 Left l -> undefined
 
-                Right response -> do
+                Right (response, mRedirects) -> do
 
                     eContent <- runEitherT $ downloadEnoughContent response
                     let responseCookies = destroyCookieJar . responseCookieJar $ response
@@ -102,8 +102,8 @@ getWithRedirects man requestCookies downloadRequest = do
     followRedirects :: Int -> 
                        Request ->
                        [Maybe CanonicalUrl] ->
-                       IO (Either String DownloadSource, [Maybe CanonicalUrl])
-    followRedirects 0   _ redirs = return (Left "Too many redirects", redirs)
+                       IO (Either String (DownloadSource, [Maybe CanonicalUrl]))
+    followRedirects 0   _ redirs = return $ Left "Too many redirects"
     followRedirects n req redirs = do
 
         res <- runResourceT $ http req man
@@ -114,5 +114,5 @@ getWithRedirects man requestCookies downloadRequest = do
                     resCookieJar = responseCookieJar res
                 case getRedirectedRequest req resHeaders resCookieJar 302 of
                     Just redirReq -> followRedirects (n-1) redirReq (canonicaliseRequest redirReq:redirs)
-                    Nothing -> return (Left "Could not create redirect request", redirs)
-            _   -> return (Right res, redirs)
+                    Nothing -> return $ Left "Could not create redirect request"
+            _   -> return $ Right (res, redirs)
