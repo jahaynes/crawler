@@ -64,6 +64,7 @@ getWithRedirects man requestCookies downloadRequest = do
                 Right response -> do
 
                     eContent <- runEitherT $ downloadEnoughContent response
+                    let responseCookies = destroyCookieJar . responseCookieJar $ response
 
                     case eContent of
                         Left l -> undefined
@@ -76,25 +77,19 @@ getWithRedirects man requestCookies downloadRequest = do
 
                             when (length redirects < length mRedirects + 1) (putStrLn "Warning, not all redirects were parsed!")
 
-                            return (Right (content, undefined), dedupe redirects)
+                            return (Right (content, responseCookies), dedupe redirects)
 
     where
     dedupe :: [CanonicalUrl] -> [CanonicalUrl]
     dedupe = map head . group
 
     downloadEnoughContent :: DownloadSource -> EitherT String IO BS.ByteString --DownloadResponse
-    downloadEnoughContent response = do
-
-        let responseCookies = destroyCookieJar . responseCookieJar $ response
+    downloadEnoughContent response =
 
         case getContentLength response of
-            Just x | x <= maxContentLength -> do
-                        bs <- downloadBodySource response
-                        right bs -- (bs, responseCookies)
-                    | otherwise -> left "Too big"
-            Nothing -> do
-                bs <- downloadBodySource response
-                right bs -- (bs, responseCookies)
+            Just x | x <= maxContentLength -> downloadBodySource response
+                   | otherwise -> left "Too big"
+            Nothing -> downloadBodySource response
 
         where
         downloadBodySource :: DownloadSource -> EitherT String IO BS.ByteString
