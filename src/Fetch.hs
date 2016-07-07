@@ -10,6 +10,8 @@ import Data.CaseInsensitive         (mk)
 import Control.Applicative          ((<$>))
 import Control.Monad                (when)
 import Control.Monad.Trans.Resource (runResourceT)
+import Control.Monad.Trans.Either
+import Control.Monad.IO.Class
 import Data.ByteString.Char8        (unpack)
 import Data.ByteString.Lazy.Char8   (toStrict)
 import qualified Data.ByteString    as BS
@@ -46,7 +48,7 @@ makeRequest requestCookies downloadRequest = do
 getWithRedirects :: Manager
                  -> [Cookie]
                  -> DownloadRequest
-                 -> IO (Either String DownloadResponse, [CanonicalUrl])
+                 -> IO (Either String (BS.ByteString, [Cookie]), [CanonicalUrl])
 getWithRedirects man requestCookies downloadRequest = do
 
     case makeRequest requestCookies downloadRequest of
@@ -56,39 +58,49 @@ getWithRedirects man requestCookies downloadRequest = do
 
             (mResponse, mRedirects) <- followRedirects maxRedirects req [canonicaliseRequest req]
 
-            mContent <- downloadEnoughContent mResponse
+            case mResponse of
+                Left l -> undefined
 
-            --Include the initial url in the redirects
-            let redirects = catMaybes mRedirects ++ [getUrl downloadRequest]
+                Right response -> do
 
-            when (length redirects < length mRedirects + 1) (putStrLn "Warning, not all redirects were parsed!")
+                    eContent <- runEitherT $ downloadEnoughContent response
 
-            return (mContent, dedupe redirects)
+                    case eContent of
+                        Left l -> undefined
+                        Right content -> do
+
+                            --TODO <- get the response cookies out here so we don't need them later
+
+                            --Include the initial url in the redirects
+                            let redirects = catMaybes mRedirects ++ [getUrl downloadRequest]
+
+                            when (length redirects < length mRedirects + 1) (putStrLn "Warning, not all redirects were parsed!")
+
+                            return (Right (content, undefined), dedupe redirects)
 
     where
     dedupe :: [CanonicalUrl] -> [CanonicalUrl]
     dedupe = map head . group
 
-    downloadEnoughContent :: Either String DownloadSource -> IO (Either String DownloadResponse)
-    downloadEnoughContent mResponse =
-        case mResponse of
-            Left l -> return (Left l)
-            Right response -> do
+    downloadEnoughContent :: DownloadSource -> EitherT String IO BS.ByteString --DownloadResponse
+    downloadEnoughContent response = do
 
-                let responseCookies = destroyCookieJar . responseCookieJar $ response
+        let responseCookies = destroyCookieJar . responseCookieJar $ response
 
-                case getContentLength response of
-                    Just x | x <= maxContentLength -> do
-                                bs <- downloadBodySource response
-                                return (Right (bs, responseCookies))
-                           | otherwise -> return (Left "Too big")
-                    Nothing -> do
+        case getContentLength response of
+            Just x | x <= maxContentLength -> do
                         bs <- downloadBodySource response
-                        return (Right (bs, responseCookies))
+                        right bs -- (bs, responseCookies)
+                    | otherwise -> left "Too big"
+            Nothing -> do
+                bs <- downloadBodySource response
+                right bs -- (bs, responseCookies)
 
         where
-        downloadBodySource :: DownloadSource -> IO BS.ByteString
-        downloadBodySource res = runResourceT $ responseBody res $$+- CL.map (BS.take maxContentLength) $= (toStrict <$> sinkLbs)
+        downloadBodySource :: DownloadSource -> EitherT String IO BS.ByteString
+        downloadBodySource res = do
+            x <- liftIO . runResourceT $ responseBody res $$+- CL.map (BS.take maxContentLength) $= (toStrict <$> sinkLbs)
+            right x
 
         getContentLength :: Response a -> Maybe Int
         getContentLength response =
