@@ -79,14 +79,17 @@ getWithRedirects man requestCookies downloadRequest = do
 
                 case getContentLength response of
                     Just x | x <= maxContentLength -> do
-                                bs <- runResourceT $ responseBody response $$+- (toStrict <$> sinkLbs)
+                                bs <- downloadBodySource response
                                 case BS.last bs of _ -> return (Right (bs, responseCookies))
                            | otherwise -> return (Left "Too big")
                     Nothing -> do
-                        bs <- runResourceT $ responseBody response $$+- CL.map (BS.take maxContentLength) $= (toStrict <$> sinkLbs)
+                        bs <- downloadBodySource response
                         case BS.last bs of _ -> return (Right (bs, responseCookies))
 
         where
+        downloadBodySource :: DownloadSource -> IO BS.ByteString
+        downloadBodySource res = runResourceT $ responseBody res $$+- CL.map (BS.take maxContentLength) $= (toStrict <$> sinkLbs)
+
         getContentLength :: Response a -> Maybe Int
         getContentLength response =
             case filter (\(k,_) -> mk k == mk hContentLength) . responseHeaders $ response of
