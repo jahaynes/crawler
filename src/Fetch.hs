@@ -70,8 +70,6 @@ getWithRedirects man requestCookies downloadRequest = do
                         Left l -> undefined
                         Right content -> do
 
-                            --TODO <- get the response cookies out here so we don't need them later
-
                             --Include the initial url in the redirects
                             let redirects = catMaybes mRedirects ++ [getUrl downloadRequest]
 
@@ -83,7 +81,7 @@ getWithRedirects man requestCookies downloadRequest = do
     dedupe :: [CanonicalUrl] -> [CanonicalUrl]
     dedupe = map head . group
 
-    downloadEnoughContent :: DownloadSource -> EitherT String IO BS.ByteString --DownloadResponse
+    downloadEnoughContent :: DownloadSource -> EitherT String IO BS.ByteString
     downloadEnoughContent response =
 
         case getContentLength response of
