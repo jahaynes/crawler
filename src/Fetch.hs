@@ -91,9 +91,7 @@ getWithRedirects man requestCookies downloadRequest = do
 
         where
         downloadBodySource :: DownloadSource -> EitherT String IO BS.ByteString
-        downloadBodySource res = do
-            x <- liftIO . runResourceT $ responseBody res $$+- CL.map (BS.take maxContentLength) $= (toStrict <$> sinkLbs)
-            right x
+        downloadBodySource res = right =<< (liftIO . runResourceT $ responseBody res $$+- CL.map (BS.take maxContentLength) $= (toStrict <$> sinkLbs))
 
         getContentLength :: Response a -> Maybe Int
         getContentLength response =
