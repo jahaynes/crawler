@@ -74,7 +74,7 @@ setNumCrawlers crawlerState workers desiredNum = do
     getActiveCrawlerCount = (-) <$> sizeOfSet (getCrawlerThreads workers) <*> sizeOfSet (getCrawlerThreadsToStop workers)
 
 crawlUrls :: Workers -> Crawler -> ThreadId -> IO ()
-crawlUrls workers crawlerState threadId = do
+crawlUrls workers crawlerState threadId =
 
     whileActive threadId (getCrawlerThreads workers) (getCrawlerThreadsToStop workers) $ do
 
@@ -85,44 +85,44 @@ crawlUrls workers crawlerState threadId = do
 
         (mBodyData, redirects) <- getWithRedirects (getManager crawlerState) cookiesToSend (GetRequest nextUrl)
 
-        processResponse (mBodyData, redirects) nextUrl cookiesToSend
-
-    where
-    processResponse :: (Either String (ByteString, [Cookie]), [CanonicalUrl]) -> CanonicalUrl -> [Cookie] -> IO ()
-    processResponse (mBodyData, redirects) nextUrl cookiesSent =
         case mBodyData of
             Left err -> do
                 putStrLn $ "Failed to download (thread " ++ show threadId ++ ")"
                 print err
                 atomically $ failedDownload nextUrl
-            Right (bodyData, responseCookies) -> do
+            Right (bodyData, responseCookies) ->
+                processResponse bodyData redirects responseCookies nextUrl cookiesToSend
 
-                let parsedTags = parseTags bodyData
+    where
+    processResponse :: ByteString -> [CanonicalUrl] -> [Cookie] -> CanonicalUrl -> [Cookie] -> IO ()
+    processResponse bodyData redirects responseCookies nextUrl cookiesSent = do
 
-                --Give meta refresh a chance to fire
-                case findPageRedirect parsedTags of
-                    Just metaRefreshUrl -> do
-                        {- Chance of crawler trap here. Perhaps we should 
-                           check that metaRefreshUrl hasn't already been visited -}
+        let parsedTags = parseTags bodyData
+
+        --Give meta refresh a chance to fire
+        case findPageRedirect parsedTags of
+            Just metaRefreshUrl -> do
+                {- Chance of crawler trap here. Perhaps we should 
+                    check that metaRefreshUrl hasn't already been visited -}
+                let moreCookies = responseCookies ++ cookiesSent
+                _ {- formResponse -} <- getWithRedirects (getManager crawlerState) moreCookies (GetRequest metaRefreshUrl)
+                processResponse undefined undefined undefined nextUrl moreCookies
+
+            Nothing -> do
+                let (hrefErrors, nextHrefs, forms) = parsePage redirects parsedTags
+                formInstructions <- atomically . readTVar . getFormInstructions $ crawlerState
+                case selectFormOptions formInstructions forms of
+
+                    Just formRequest -> do
+
                         let moreCookies = responseCookies ++ cookiesSent
-                        formResponse <- getWithRedirects (getManager crawlerState) moreCookies (GetRequest metaRefreshUrl)
-                        processResponse formResponse nextUrl moreCookies
+                        _ {- formResponse -} <- getWithRedirects (getManager crawlerState) moreCookies formRequest
+                        processResponse undefined undefined undefined nextUrl moreCookies
 
-                    Nothing -> do
-                        let (hrefErrors, nextHrefs, forms) = parsePage redirects parsedTags
-                        formInstructions <- atomically . readTVar . getFormInstructions $ crawlerState
-                        case selectFormOptions formInstructions forms of
-
-                            Just formRequest -> do
-
-                                let moreCookies = responseCookies ++ cookiesSent
-                                formResponse <- getWithRedirects (getManager crawlerState) moreCookies formRequest
-                                processResponse formResponse nextUrl moreCookies
-
-                            Nothing -> storeResponse bodyData responseCookies nextHrefs hrefErrors
+                    Nothing -> storeResponse nextHrefs hrefErrors
 
         where
-        storeResponse bodyData responseCookies nextHrefs hrefErrors = do
+        storeResponse nextHrefs hrefErrors = do
             included <- atomically $ checkAgainstIncludePatterns crawlerState (head redirects)
             when included $ do
                 atomically $ shareCookies (responseCookies \\ cookiesSent)
