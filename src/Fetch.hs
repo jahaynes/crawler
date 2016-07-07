@@ -9,8 +9,7 @@ import Types
 import Data.CaseInsensitive         (mk)
 import Control.Applicative          ((<$>))
 import Control.Monad                (when)
-import Control.Monad.IO.Class       (liftIO)
-import Control.Monad.Trans.Resource (ResourceT, runResourceT)
+import Control.Monad.Trans.Resource (runResourceT)
 import Data.ByteString.Char8        (unpack)
 import Data.ByteString.Lazy.Char8   (toStrict)
 import qualified Data.ByteString    as BS
@@ -55,23 +54,22 @@ getWithRedirects man requestCookies downloadRequest = do
 
         Right req -> do
 
-            runResourceT $ do
-                (mResponse, mRedirects) <- followRedirects maxRedirects req [canonicaliseRequest req]
+            (mResponse, mRedirects) <- followRedirects maxRedirects req [canonicaliseRequest req]
 
-                mContent <- downloadEnoughContent mResponse
+            mContent <- downloadEnoughContent mResponse
 
-                --Include the initial url in the redirects
-                let redirects = catMaybes mRedirects ++ [getUrl downloadRequest]
+            --Include the initial url in the redirects
+            let redirects = catMaybes mRedirects ++ [getUrl downloadRequest]
 
-                when (length redirects < length mRedirects + 1) (liftIO $ putStrLn "Warning, not all redirects were parsed!")
+            when (length redirects < length mRedirects + 1) (putStrLn "Warning, not all redirects were parsed!")
 
-                return (mContent, dedupe redirects)
+            return (mContent, dedupe redirects)
 
     where
     dedupe :: [CanonicalUrl] -> [CanonicalUrl]
     dedupe = map head . group
 
-    downloadEnoughContent :: Either String DownloadSource -> (ResourceT IO) (Either String DownloadResponse)
+    downloadEnoughContent :: Either String DownloadSource -> IO (Either String DownloadResponse)
     downloadEnoughContent mResponse =
         case mResponse of
             Left l -> return (Left l)
@@ -81,11 +79,11 @@ getWithRedirects man requestCookies downloadRequest = do
 
                 case getContentLength response of
                     Just x | x <= maxContentLength -> do
-                                bs <- responseBody response $$+- (toStrict <$> sinkLbs)
+                                bs <- runResourceT $ responseBody response $$+- (toStrict <$> sinkLbs)
                                 case BS.last bs of _ -> return (Right (bs, responseCookies))
                            | otherwise -> return (Left "Too big")
                     Nothing -> do
-                        bs <- responseBody response $$+- CL.map (BS.take maxContentLength) $= (toStrict <$> sinkLbs)
+                        bs <- runResourceT $ responseBody response $$+- CL.map (BS.take maxContentLength) $= (toStrict <$> sinkLbs)
                         case BS.last bs of _ -> return (Right (bs, responseCookies))
 
         where
@@ -98,11 +96,11 @@ getWithRedirects man requestCookies downloadRequest = do
     followRedirects :: Int -> 
                        Request ->
                        [Maybe CanonicalUrl] ->
-                       (ResourceT IO) (Either String DownloadSource, [Maybe CanonicalUrl])
+                       IO (Either String DownloadSource, [Maybe CanonicalUrl])
     followRedirects 0   _ redirs = return (Left "Too many redirects", redirs)
     followRedirects n req redirs = do
 
-        res <- http req man
+        res <- runResourceT $ http req man
 
         case statusCode . responseStatus $ res of
             302 -> do
