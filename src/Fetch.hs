@@ -56,25 +56,29 @@ getWithRedirects :: Manager
                  -> EitherT String IO (BS.ByteString, [Cookie], [CanonicalUrl])
 getWithRedirects man requestCookies downloadRequest = do
 
-    case makeRequest requestCookies downloadRequest of
-        Left ex -> left $ "Could not make request from " ++ show downloadRequest ++ "\nThe reason was: " ++ show ex
+    req <- buildRequest
 
-        Right req -> do
+    (response, mRedirects) <- followRedirects maxRedirects req [canonicaliseRequest req]
 
-            (response, mRedirects) <- followRedirects maxRedirects req [canonicaliseRequest req]
+    let responseCookies = destroyCookieJar . responseCookieJar $ response
 
-            let responseCookies = destroyCookieJar . responseCookieJar $ response
+    content <- downloadEnoughContent response
 
-            content <- downloadEnoughContent response
+    --Include the initial url in the redirects
+    let redirects = catMaybes mRedirects ++ [getUrl downloadRequest]
 
-            --Include the initial url in the redirects
-            let redirects = catMaybes mRedirects ++ [getUrl downloadRequest]
+    --TODO turn this into a warning instead of STDOUT
+    when (length redirects < length mRedirects + 1) (liftIO $ putStrLn "Warning, not all redirects were parsed!")
 
-            when (length redirects < length mRedirects + 1) (liftIO $ putStrLn "Warning, not all redirects were parsed!")
-
-            right (content, responseCookies, dedupe redirects)
+    right (content, responseCookies, dedupe redirects)
 
     where
+    buildRequest :: Monad m => EitherT String m Request 
+    buildRequest =
+        case makeRequest requestCookies downloadRequest of
+            Left ex -> left $ "Could not make request from " ++ show downloadRequest ++ "\nThe reason was: " ++ show ex
+            Right req -> right req
+
     dedupe :: [CanonicalUrl] -> [CanonicalUrl]
     dedupe = map head . group
 
