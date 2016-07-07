@@ -10,7 +10,7 @@ import Data.CaseInsensitive         (mk)
 import Control.Applicative          ((<$>))
 import Control.Monad                (when)
 import Control.Monad.Trans.Resource (runResourceT)
-import Control.Monad.Trans.Either   (EitherT, runEitherT, left, right)
+import Control.Monad.Trans.Either   (EitherT, left, right)
 import Control.Monad.IO.Class       (liftIO)
 import Data.ByteString.Char8        (unpack)
 import Data.ByteString.Lazy.Char8   (toStrict)
@@ -53,34 +53,26 @@ makeRequest requestCookies downloadRequest = do
 getWithRedirects :: Manager
                  -> [Cookie]
                  -> DownloadRequest
-                 -> IO (Either String (BS.ByteString, [Cookie], [CanonicalUrl]))
+                 -> EitherT String IO (BS.ByteString, [Cookie], [CanonicalUrl])
 getWithRedirects man requestCookies downloadRequest = do
 
     case makeRequest requestCookies downloadRequest of
-        Left ex -> return (Left $ "Could not make request from " ++ show downloadRequest ++ "\nThe reason was: " ++ show ex)
+        Left ex -> left $ "Could not make request from " ++ show downloadRequest ++ "\nThe reason was: " ++ show ex
 
         Right req -> do
 
-            mResponseAndRedirects <- runEitherT $ followRedirects maxRedirects req [canonicaliseRequest req]
+            (response, mRedirects) <- followRedirects maxRedirects req [canonicaliseRequest req]
 
-            case mResponseAndRedirects of
-                Left l -> undefined
+            let responseCookies = destroyCookieJar . responseCookieJar $ response
 
-                Right (response, mRedirects) -> do
+            content <- downloadEnoughContent response
 
-                    eContent <- runEitherT $ downloadEnoughContent response
-                    let responseCookies = destroyCookieJar . responseCookieJar $ response
+            --Include the initial url in the redirects
+            let redirects = catMaybes mRedirects ++ [getUrl downloadRequest]
 
-                    case eContent of
-                        Left l -> undefined
-                        Right content -> do
+            when (length redirects < length mRedirects + 1) (liftIO $ putStrLn "Warning, not all redirects were parsed!")
 
-                            --Include the initial url in the redirects
-                            let redirects = catMaybes mRedirects ++ [getUrl downloadRequest]
-
-                            when (length redirects < length mRedirects + 1) (putStrLn "Warning, not all redirects were parsed!")
-
-                            return (Right (content, responseCookies, dedupe redirects))
+            right (content, responseCookies, dedupe redirects)
 
     where
     dedupe :: [CanonicalUrl] -> [CanonicalUrl]
