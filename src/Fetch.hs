@@ -10,8 +10,8 @@ import Data.CaseInsensitive         (mk)
 import Control.Applicative          ((<$>))
 import Control.Monad                (when)
 import Control.Monad.Trans.Resource (runResourceT)
-import Control.Monad.Trans.Either
-import Control.Monad.IO.Class
+import Control.Monad.Trans.Either   (EitherT, runEitherT, left, right)
+import Control.Monad.IO.Class       (liftIO)
 import Data.ByteString.Char8        (unpack)
 import Data.ByteString.Lazy.Char8   (toStrict)
 import qualified Data.ByteString    as BS
@@ -56,7 +56,7 @@ getWithRedirects man requestCookies downloadRequest = do
 
         Right req -> do
 
-            mResponseAndRedirects <- followRedirects maxRedirects req [canonicaliseRequest req]
+            mResponseAndRedirects <- runEitherT $ followRedirects maxRedirects req [canonicaliseRequest req]
 
             case mResponseAndRedirects of
                 Left l -> undefined
@@ -102,11 +102,11 @@ getWithRedirects man requestCookies downloadRequest = do
     followRedirects :: Int -> 
                        Request ->
                        [Maybe CanonicalUrl] ->
-                       IO (Either String (DownloadSource, [Maybe CanonicalUrl]))
-    followRedirects 0   _ redirs = return $ Left "Too many redirects"
+                       EitherT String IO (DownloadSource, [Maybe CanonicalUrl])
+    followRedirects 0   _ redirs = left "Too many redirects"
     followRedirects n req redirs = do
 
-        res <- runResourceT $ http req man
+        res <- liftIO . runResourceT $ http req man
 
         case statusCode . responseStatus $ res of
             302 -> do
@@ -114,5 +114,5 @@ getWithRedirects man requestCookies downloadRequest = do
                     resCookieJar = responseCookieJar res
                 case getRedirectedRequest req resHeaders resCookieJar 302 of
                     Just redirReq -> followRedirects (n-1) redirReq (canonicaliseRequest redirReq:redirs)
-                    Nothing -> return $ Left "Could not create redirect request"
-            _   -> return $ Right (res, redirs)
+                    Nothing -> left "Could not create redirect request"
+            _   -> right (res, redirs)
