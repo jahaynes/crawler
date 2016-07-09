@@ -62,7 +62,7 @@ initialiseFormInstructions crawlerState (OptionMap optionMap) =
         Nothing -> return ()
         Just formFiles -> do
             formFileContents <- mapM readFile formFiles
-            let processed = map processFormInstructions formFiles
+            let processed = map processFormInstructions formFileContents
                 formInstructions = SuppliedFormActions $ M.unions processed
             atomically $ writeTVar (getFormInstructions crawlerState) formInstructions
             putStrLn $ "Inserted Form instructions: \n" ++ show formInstructions 
