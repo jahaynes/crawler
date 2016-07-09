@@ -72,6 +72,7 @@ parseRelative relative =
                 _ -> (url, Nothing)
         | otherwise = (url, Nothing)
 
+--Todo -> monad stack this
 derelativise :: CanonicalUrl -> ByteString -> Either Loggable CanonicalUrl
 derelativise onUrl bsUrl = do
     let url = unpack bsUrl
