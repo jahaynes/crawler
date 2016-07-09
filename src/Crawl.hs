@@ -137,9 +137,10 @@ crawlUrls workers crawlerState threadId =
 
     failedDownload :: CanonicalUrl -> STM ()
     failedDownload attemptedUrl = do
+        let errMsg = "Couldn't get data for " ++ show attemptedUrl
         S.delete attemptedUrl (getUrlsInProgress crawlerState)
-        M.insert "Couldn't get data!" attemptedUrl (getUrlsFailed crawlerState)
-        writeQueue (getLogQueue crawlerState) (LoggableError attemptedUrl "placeholder error msg")
+        M.insert errMsg attemptedUrl (getUrlsFailed crawlerState)
+        writeQueue (getLogQueue crawlerState) (LoggableError attemptedUrl (C8.pack errMsg))
 
     successfulDownload :: CanonicalUrl -> [CanonicalUrl] -> ByteString -> STM ()
     successfulDownload attemptedUrl redirects bodyData = do
