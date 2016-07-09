@@ -27,19 +27,17 @@ optionMapFromArgs :: [String] -> OptionMap
 optionMapFromArgs =   OptionMap
                   <$> Map.unionsWith union
                   .   mapMaybe (\gr -> Map.singleton <$> (OptionFlag <$> headMay gr) <*> tailMay gr)
-                  .   filter (\gr -> maybe False isFlag (headMay gr))
+                  .   filter (maybe False isFlag . headMay)
                   .   groupBy (\a b -> isFlag a && not (isFlag b))
 
     where
     isFlag x = length x > 1 && head x == '-'
 
 defaultStorage :: StoreFunction
-defaultStorage crawledDocument =
-    print . head . getRedirectChain $ crawledDocument
+defaultStorage = print . head . getRedirectChain
 
 defaultLogging :: LogFunction
-defaultLogging loggable =
-    hPrint stderr loggable
+defaultLogging = hPrint stderr
 
 main :: IO ()
 main = do

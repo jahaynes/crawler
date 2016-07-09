@@ -36,8 +36,7 @@ initialiseIncludes crawler (OptionMap optionMap) = do
         Nothing -> return ()
         Just urlFiles -> do
             files <- mapM C8.readFile urlFiles
-            insertStartUrls . mapMaybe canonicaliseByteString
-                            . map trim
+            insertStartUrls . mapMaybe (canonicaliseByteString . trim)
                             . filter (not . C8.null)
                             . concatMap C8.lines
                             $ files        
