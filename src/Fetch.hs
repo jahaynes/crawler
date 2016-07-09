@@ -3,6 +3,7 @@
 module Fetch where
 
 import Urls
+import Request
 import Settings
 import Types
 
@@ -18,32 +19,11 @@ import qualified Data.ByteString    as BS
 import Data.Conduit                 (($$+-), ($=))
 import Data.Conduit.Binary          (sinkLbs)
 import qualified Data.Conduit.List  as CL (map)
-import GHC.Exception                (SomeException)
 import Data.List                    (group)
 import Data.Maybe                   (catMaybes)
 import Network.HTTP.Conduit
 import Safe                         (readMay)
 import Network.HTTP.Types           
-
-makeRequest :: [Cookie] -> DownloadRequest -> Either SomeException Request 
-makeRequest requestCookies downloadRequest = do
-
-    req <- parseRequest . show . getUrl $ downloadRequest
-
-    return . applyParametersFrom downloadRequest
-           . basicAuthSettings
-           . proxySettings 
-           $ req {
-               redirectCount = 0,
-               cookieJar = Just (createCookieJar requestCookies)
-             }
-
-    where
-    applyParametersFrom :: DownloadRequest -> (Request -> Request)
-    applyParametersFrom (GetRequest _) = id
-    applyParametersFrom (FormRequest     _ formMethod _ (FormParameters params))
-        | mk formMethod == mk methodPost = urlEncodedBody params
-        | otherwise                      = setQueryString (map (\(k,v) -> (k,Just v)) params) 
 
 {- Big TODO - make a Debug type to represent Left,
    containing cookies, canonicalUrls, error messages, etc. 
@@ -56,7 +36,7 @@ getWithRedirects :: Manager
                  -> EitherT String IO (BS.ByteString, [Cookie], [CanonicalUrl])
 getWithRedirects man requestCookies downloadRequest = do
 
-    req <- buildRequest
+    req <- buildRequest requestCookies downloadRequest
 
     (response, mRedirects) <- followRedirects maxRedirects req [canonicaliseRequest req]
 
@@ -73,12 +53,6 @@ getWithRedirects man requestCookies downloadRequest = do
     right (content, responseCookies, dedupe redirects)
 
     where
-    buildRequest :: Monad m => EitherT String m Request 
-    buildRequest =
-        case makeRequest requestCookies downloadRequest of
-            Left ex -> left $ "Could not make request from " ++ show downloadRequest ++ "\nThe reason was: " ++ show ex
-            Right req -> right req
-
     dedupe :: [CanonicalUrl] -> [CanonicalUrl]
     dedupe = map head . group
 
