@@ -16,7 +16,7 @@ import Control.Applicative              ((<$>), (<*>))
 import Control.Concurrent               (ThreadId, myThreadId)
 import Control.Concurrent.STM           (STM, atomically, readTVar, modifyTVar', newTVarIO)
 import Control.Monad                    (replicateM_, when)
-import Data.ByteString.Char8            (ByteString, isInfixOf)
+import Data.ByteString.Char8      as C8 (ByteString, concat, pack, isInfixOf)
 import Data.List                        ((\\))
 import Data.Maybe                       (isJust)
 import Data.Time
@@ -106,7 +106,7 @@ crawlUrls workers crawlerState threadId =
                 let moreCookies = responseCookies ++ cookiesSent
                 eMetaRefreshResponse <- runWebIO $ fetch (getManager crawlerState) moreCookies (GetRequest metaRefreshUrl)
                 case eMetaRefreshResponse of
-                    Left e -> undefined
+                    Left e -> atomically . writeQueue (getLogQueue crawlerState) $ LoggableWarning nextUrl (C8.concat ["Failed to process meta refresh: ", C8.pack (show e)])
                     Right metaRefreshResponse -> processResult metaRefreshResponse nextUrl moreCookies
 
             Nothing -> do
@@ -117,7 +117,7 @@ crawlUrls workers crawlerState threadId =
                         let moreCookies = responseCookies ++ cookiesSent
                         eFormResponse <- runWebIO $ fetch (getManager crawlerState) moreCookies formRequest
                         case eFormResponse of 
-                            Left e -> undefined
+                            Left e -> atomically . writeQueue (getLogQueue crawlerState) $ LoggableWarning nextUrl (C8.concat ["Failed to process form: ", C8.pack (show e)])
                             Right formResponse -> processResult formResponse nextUrl moreCookies
                     Nothing -> storeResponse nextHrefs hrefErrors
 
