@@ -20,7 +20,6 @@ import Data.Conduit                 (($$+-), ($=))
 import Data.Conduit.Binary          (sinkLbs)
 import qualified Data.Conduit.List  as CL (map)
 import Data.List                    (group)
-import Data.Maybe                   (catMaybes)
 import Network.HTTP.Conduit
 import Safe                         (readMay)
 import Network.HTTP.Types           
@@ -36,21 +35,14 @@ getWithRedirects :: Manager
                  -> EitherT String IO (BS.ByteString, [Cookie], [CanonicalUrl])
 getWithRedirects man requestCookies downloadRequest = do
 
-    req <- buildRequest requestCookies downloadRequest
-
-    (response, mRedirects) <- followRedirects maxRedirects req [canonicaliseRequest req]
+    (response, redirects) <- followRedirects
 
     let responseCookies = destroyCookieJar . responseCookieJar $ response
 
     content <- downloadEnoughContent response
 
-    --Include the initial url in the redirects
-    let redirects = catMaybes mRedirects ++ [getUrl downloadRequest]
-
-    --TODO turn this into a warning instead of STDOUT
-    when (length redirects < length mRedirects + 1) (liftIO $ putStrLn "Warning, not all redirects were parsed!")
-
-    right (content, responseCookies, dedupe redirects)
+    --TODO - see if this dedupe / append is necessary
+    right (content, responseCookies, dedupe (redirects ++ [getUrl downloadRequest]))
 
     where
     dedupe :: [CanonicalUrl] -> [CanonicalUrl]
@@ -74,20 +66,25 @@ getWithRedirects man requestCookies downloadRequest = do
                 [] -> Nothing
                 ((_,x):_) -> readMay $ unpack x
 
-    followRedirects :: Int -> 
-                       Request ->
-                       [Maybe CanonicalUrl] ->
-                       EitherT String IO (DownloadSource, [Maybe CanonicalUrl])
-    followRedirects 0   _ redirs = left "Too many redirects"
-    followRedirects n req redirs = do
+    followRedirects :: EitherT String IO (DownloadSource, [CanonicalUrl])
+    followRedirects = do
 
-        res <- liftIO . runResourceT $ http req man
+        initialRequest <- buildRequest requestCookies downloadRequest
+        firstUrl <- canonicaliseRequest initialRequest
 
-        case statusCode . responseStatus $ res of
-            302 -> do
-                let resHeaders = responseHeaders res
-                    resCookieJar = responseCookieJar res
-                case getRedirectedRequest req resHeaders resCookieJar 302 of
-                    Just redirReq -> followRedirects (n-1) redirReq (canonicaliseRequest redirReq:redirs)
-                    Nothing -> left "Could not create redirect request"
-            _   -> right (res, redirs)
+        go [firstUrl] maxRedirects initialRequest
+
+        where
+        go      _ 0   _ = left "Too many redirects.  Aborting."
+        go redirs n req = do
+            res <- liftIO . runResourceT $ http req man
+            case statusCode . responseStatus $ res of
+                302 -> do
+                    let resHeaders = responseHeaders res
+                        resCookieJar = responseCookieJar res
+                    case getRedirectedRequest req resHeaders resCookieJar 302 of --extract this into an eitherT
+                        Just redirReq -> do
+                            nextUrl <- canonicaliseRequest redirReq
+                            go (nextUrl:redirs) (n-1) redirReq
+                        Nothing -> left "Could not create redirect request"
+                _   -> right (res, redirs)
