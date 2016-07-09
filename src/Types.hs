@@ -94,7 +94,7 @@ data DownloadRequest = GetRequest CanonicalUrl
 
 type DownloadSource = Response (ResumableSource WebIO ByteString)
 
-type DownloadResponse = (ByteString, [Cookie])
+data DownloadResult = DownloadResult !ByteString ![Cookie] ![CanonicalUrl]
 
 newtype UrlRegex = UrlRegex ByteString deriving Show
 newtype FormActionRegex = FormActionRegex ByteString deriving Show

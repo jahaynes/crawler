@@ -25,7 +25,7 @@ import Network.HTTP.Types
 
    TODO - do it before merging and recapture all those Lefts we dropped -}
 
-fetch :: Manager -> [Cookie] -> DownloadRequest -> WebIO (BS.ByteString, [Cookie], [CanonicalUrl])
+fetch :: Manager -> [Cookie] -> DownloadRequest -> WebIO DownloadResult
 fetch man requestCookies downloadRequest = do
 
     (response, redirects) <- followRedirects
@@ -35,7 +35,7 @@ fetch man requestCookies downloadRequest = do
     content <- downloadEnoughContent response
 
     --TODO - see if this dedupe / append is necessary
-    return (content, responseCookies, dedupe (redirects ++ [getUrl downloadRequest]))
+    return $ DownloadResult content responseCookies (dedupe (redirects ++ [getUrl downloadRequest]))
 
     where
     dedupe :: [CanonicalUrl] -> [CanonicalUrl]

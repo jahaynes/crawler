@@ -90,12 +90,11 @@ crawlUrls workers crawlerState threadId =
                 putStrLn $ "Failed to download (thread " ++ show threadId ++ ")"
                 print err
                 atomically $ failedDownload nextUrl
-            Right (bodyData, responseCookies, redirects) ->
-                processResponse bodyData redirects responseCookies nextUrl cookiesToSend
+            Right downloadResult -> processResponse downloadResult nextUrl cookiesToSend
 
     where
-    processResponse :: ByteString -> [CanonicalUrl] -> [Cookie] -> CanonicalUrl -> [Cookie] -> IO ()
-    processResponse bodyData redirects responseCookies nextUrl cookiesSent = do
+    processResponse :: DownloadResult -> CanonicalUrl -> [Cookie] -> IO ()
+    processResponse (DownloadResult bodyData responseCookies redirects) nextUrl cookiesSent = do
 
         let parsedTags = parseTags bodyData
 
@@ -105,20 +104,21 @@ crawlUrls workers crawlerState threadId =
                 {- Chance of crawler trap here. Perhaps we should 
                     check that metaRefreshUrl hasn't already been visited -}
                 let moreCookies = responseCookies ++ cookiesSent
-                _ {- formResponse -} <- runWebIO $ fetch (getManager crawlerState) moreCookies (GetRequest metaRefreshUrl)
-                processResponse undefined undefined undefined nextUrl moreCookies
+                eMetaRefreshResponse <- runWebIO $ fetch (getManager crawlerState) moreCookies (GetRequest metaRefreshUrl)
+                case eMetaRefreshResponse of
+                    Left e -> undefined
+                    Right metaRefreshResponse -> processResponse metaRefreshResponse nextUrl moreCookies
 
             Nothing -> do
                 let (hrefErrors, nextHrefs, forms) = parsePage redirects parsedTags
                 formInstructions <- atomically . readTVar . getFormInstructions $ crawlerState
                 case selectFormOptions formInstructions forms of
-
                     Just formRequest -> do
-
                         let moreCookies = responseCookies ++ cookiesSent
-                        _ {- formResponse -} <- runWebIO $ fetch (getManager crawlerState) moreCookies formRequest
-                        processResponse undefined undefined undefined nextUrl moreCookies
-
+                        eFormResponse <- runWebIO $ fetch (getManager crawlerState) moreCookies formRequest
+                        case eFormResponse of 
+                            Left e -> undefined
+                            Right formResponse -> processResponse formResponse nextUrl moreCookies
                     Nothing -> storeResponse nextHrefs hrefErrors
 
         where
