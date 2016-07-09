@@ -90,11 +90,11 @@ crawlUrls workers crawlerState threadId =
                 putStrLn $ "Failed to download (thread " ++ show threadId ++ ")"
                 print err
                 atomically $ failedDownload nextUrl
-            Right downloadResult -> processResponse downloadResult nextUrl cookiesToSend
+            Right downloadResult -> processResult downloadResult nextUrl cookiesToSend
 
     where
-    processResponse :: DownloadResult -> CanonicalUrl -> [Cookie] -> IO ()
-    processResponse (DownloadResult bodyData responseCookies redirects) nextUrl cookiesSent = do
+    processResult :: DownloadResult -> CanonicalUrl -> [Cookie] -> IO ()
+    processResult (DownloadResult bodyData responseCookies redirects) nextUrl cookiesSent = do
 
         let parsedTags = parseTags bodyData
 
@@ -107,7 +107,7 @@ crawlUrls workers crawlerState threadId =
                 eMetaRefreshResponse <- runWebIO $ fetch (getManager crawlerState) moreCookies (GetRequest metaRefreshUrl)
                 case eMetaRefreshResponse of
                     Left e -> undefined
-                    Right metaRefreshResponse -> processResponse metaRefreshResponse nextUrl moreCookies
+                    Right metaRefreshResponse -> processResult metaRefreshResponse nextUrl moreCookies
 
             Nothing -> do
                 let (hrefErrors, nextHrefs, forms) = parsePage redirects parsedTags
@@ -118,7 +118,7 @@ crawlUrls workers crawlerState threadId =
                         eFormResponse <- runWebIO $ fetch (getManager crawlerState) moreCookies formRequest
                         case eFormResponse of 
                             Left e -> undefined
-                            Right formResponse -> processResponse formResponse nextUrl moreCookies
+                            Right formResponse -> processResult formResponse nextUrl moreCookies
                     Nothing -> storeResponse nextHrefs hrefErrors
 
         where
