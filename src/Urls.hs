@@ -6,17 +6,17 @@ import Settings
 import Types
 
 import Control.Applicative          ((<$>))
-import Control.Monad.Trans.Either   (EitherT, left, right)
 import Data.ByteString.Char8  as C8 (ByteString, append, concat, pack, unpack, isInfixOf, isPrefixOf, null)
 import Data.ByteString.Search       (breakOn, breakAfter)
 import Data.List.Split              (splitWhen)
 import Network.URI
 import Network.HTTP.Client          (Request, getUri)
 
-canonicaliseRequest :: Request -> EitherT String IO CanonicalUrl    -- Might be able to make this m, not IO
-canonicaliseRequest req = case canonicaliseNetworkUri . getUri $ req of
-                              Nothing -> left "Couldn't canonicalise URL from Request"
-                              Just url -> right url
+canonicaliseRequest :: Request -> WebIO CanonicalUrl
+canonicaliseRequest req =
+    case canonicaliseNetworkUri . getUri $ req of
+        Nothing -> webErr "Couldn't canonicalise URL from Request"
+        Just url -> return url
 
 canonicaliseNetworkUri :: URI -> Maybe CanonicalUrl
 canonicaliseNetworkUri = canonicaliseString . show . stripPort

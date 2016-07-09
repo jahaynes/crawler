@@ -3,7 +3,9 @@ module Types where
 import CountedQueue
 import Communication
 
-import Control.Monad.Trans.Resource     (ResourceT)
+import Control.Monad.Trans.Class        (lift)
+import Control.Monad.Trans.Either       (EitherT, runEitherT, left)
+import Control.Monad.Trans.Resource     (ResourceT, runResourceT)
 import Data.ByteString.Char8            (ByteString, unpack)
 import Data.Conduit                     (ResumableSource)
 import Data.Hashable                    (Hashable, hashWithSalt)
@@ -90,7 +92,7 @@ type FormValue = ByteString
 data DownloadRequest = GetRequest CanonicalUrl
                      | FormRequest Label Method CanonicalUrl FormParameters deriving Show
 
-type DownloadSource = Response (ResumableSource (ResourceT IO) ByteString)
+type DownloadSource = Response (ResumableSource WebIO ByteString)
 
 type DownloadResponse = (ByteString, [Cookie])
 
@@ -118,3 +120,14 @@ getUrl (FormRequest _ _ targetUrl _) = targetUrl
 
 setAsList :: Set a -> STM [a]
 setAsList = toList . stream
+
+{- Custom Monad Transformer Stack
+   which implements Resource and Either -}
+type WebIO = ResourceT (EitherT String IO)
+
+runWebIO :: ResourceT (EitherT e IO) a -> IO (Either e a)
+runWebIO = runEitherT . runResourceT
+
+webErr :: String -> ResourceT (EitherT String IO) a
+webErr = lift . left
+

@@ -2,7 +2,6 @@ module Request where
 
 import Data.CaseInsensitive         (mk)
 import Control.Applicative          ((<$>))
-import Control.Monad.Trans.Either   (EitherT, left, right)
 import GHC.Exception                (SomeException)
 import Network.HTTP.Conduit
 import Network.HTTP.Types           (methodPost)
@@ -10,11 +9,11 @@ import Network.HTTP.Types           (methodPost)
 import Settings
 import Types
 
-buildRequest :: Monad m => [Cookie] -> DownloadRequest -> EitherT String m Request 
+buildRequest :: [Cookie] -> DownloadRequest -> WebIO Request
 buildRequest requestCookies downloadRequest =
     case makeRequest of
-        Left ex -> left $ "Could not make request from " ++ show downloadRequest ++ "\nThe reason was: " ++ show ex
-        Right req -> right req
+        Left l -> webErr $ show l
+        Right req -> return req
 
     where
     makeRequest :: Either SomeException Request 

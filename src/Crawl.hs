@@ -16,7 +16,6 @@ import Control.Applicative              ((<$>), (<*>))
 import Control.Concurrent               (ThreadId, myThreadId)
 import Control.Concurrent.STM           (STM, atomically, readTVar, modifyTVar', newTVarIO)
 import Control.Monad                    (replicateM_, when)
-import Control.Monad.Trans.Either       (runEitherT)
 import Data.ByteString.Char8            (ByteString, isInfixOf)
 import Data.List                        ((\\))
 import Data.Maybe                       (isJust)
@@ -84,7 +83,7 @@ crawlUrls workers crawlerState threadId =
 
         resetThreadClock nextUrl
 
-        eDownloadResult <- runEitherT $ getWithRedirects (getManager crawlerState) cookiesToSend (GetRequest nextUrl)
+        eDownloadResult <- runWebIO $ fetch (getManager crawlerState) cookiesToSend (GetRequest nextUrl)
 
         case eDownloadResult of
             Left err -> do
@@ -106,7 +105,7 @@ crawlUrls workers crawlerState threadId =
                 {- Chance of crawler trap here. Perhaps we should 
                     check that metaRefreshUrl hasn't already been visited -}
                 let moreCookies = responseCookies ++ cookiesSent
-                _ {- formResponse -} <- runEitherT $ getWithRedirects (getManager crawlerState) moreCookies (GetRequest metaRefreshUrl)
+                _ {- formResponse -} <- runWebIO $ fetch (getManager crawlerState) moreCookies (GetRequest metaRefreshUrl)
                 processResponse undefined undefined undefined nextUrl moreCookies
 
             Nothing -> do
@@ -117,7 +116,7 @@ crawlUrls workers crawlerState threadId =
                     Just formRequest -> do
 
                         let moreCookies = responseCookies ++ cookiesSent
-                        _ {- formResponse -} <- runEitherT $ getWithRedirects (getManager crawlerState) moreCookies formRequest
+                        _ {- formResponse -} <- runWebIO $ fetch (getManager crawlerState) moreCookies formRequest
                         processResponse undefined undefined undefined nextUrl moreCookies
 
                     Nothing -> storeResponse nextHrefs hrefErrors
