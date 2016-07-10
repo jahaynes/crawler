@@ -32,7 +32,9 @@ fetch man requestCookies downloadRequest = do
 
     let responseCookies = destroyCookieJar . responseCookieJar $ response
 
-    content <- downloadEnoughContent response
+    checkSize response
+
+    content <- downloadBodySource response
 
     --TODO - see if this dedupe / append is necessary
     return $ DownloadResult content responseCookies (dedupe (redirects ++ [getUrl downloadRequest]))
@@ -41,23 +43,21 @@ fetch man requestCookies downloadRequest = do
     dedupe :: [CanonicalUrl] -> [CanonicalUrl]
     dedupe = map head . group
 
-    downloadEnoughContent :: DownloadSource -> WebIO BS.ByteString
-    downloadEnoughContent response =
-
-        case getContentLength of
-            Just x | x <= maxContentLength -> downloadBodySource
-                   | otherwise -> webErr "Too big"
-            Nothing -> downloadBodySource
+    checkSize :: DownloadSource -> WebIO ()
+    checkSize res = case getContentLength of
+                    Just x | x <= maxContentLength -> return ()
+                           | otherwise -> webErr "Too big"
+                    Nothing -> return ()
 
         where
-        downloadBodySource :: WebIO BS.ByteString
-        downloadBodySource = responseBody response $$+- CL.map (BS.take maxContentLength) $= (toStrict <$> sinkLbs)
-
         getContentLength :: Maybe Int
         getContentLength =
-            case filter (\(k,_) -> mk k == mk hContentLength) . responseHeaders $ response of
+            case filter (\(k,_) -> mk k == mk hContentLength) . responseHeaders $ res of
                 [] -> Nothing
                 ((_,x):_) -> readMay $ unpack x
+
+    downloadBodySource :: DownloadSource -> WebIO BS.ByteString
+    downloadBodySource res = responseBody res $$+- CL.map (BS.take maxContentLength) $= (toStrict <$> sinkLbs)
 
     followRedirects :: WebIO (DownloadSource, [CanonicalUrl])
     followRedirects = do
