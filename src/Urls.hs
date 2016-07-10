@@ -12,8 +12,11 @@ import Data.List.Split              (splitWhen)
 import Network.URI
 import Network.HTTP.Client          (Request, getUri)
 
-canonicaliseRequest :: Request -> Maybe CanonicalUrl
-canonicaliseRequest = canonicaliseNetworkUri . getUri
+canonicaliseRequest :: Request -> WebIO CanonicalUrl
+canonicaliseRequest req =
+    case canonicaliseNetworkUri . getUri $ req of
+        Nothing -> webErr "Couldn't canonicalise URL from Request"
+        Just url -> return url
 
 canonicaliseNetworkUri :: URI -> Maybe CanonicalUrl
 canonicaliseNetworkUri = canonicaliseString . show . stripPort
@@ -34,7 +37,7 @@ canonicaliseString :: String -> Maybe CanonicalUrl
 canonicaliseString str =
     case parseAbsoluteURI (discard str) of
         Just x -> Just (CanonicalUrl (pack . normalize . show $ (x :: URI)))
-        Nothing -> Nothing
+        Nothing -> Nothing  --TODO - this looks double-handled
 
 normalize :: String -> String
 normalize = normalizeCase . normalizeEscape . normalizePathSegments
@@ -69,6 +72,7 @@ parseRelative relative =
                 _ -> (url, Nothing)
         | otherwise = (url, Nothing)
 
+--Todo -> monad stack this
 derelativise :: CanonicalUrl -> ByteString -> Either Loggable CanonicalUrl
 derelativise onUrl bsUrl = do
     let url = unpack bsUrl
