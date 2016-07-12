@@ -72,7 +72,6 @@ parseRelative relative =
                 _ -> (url, Nothing)
         | otherwise = (url, Nothing)
 
---Todo -> monad stack this
 derelativise :: CanonicalUrl -> ByteString -> Either Loggable CanonicalUrl
 derelativise onUrl bsUrl
     | "mailto:" `C8.isPrefixOf` bsUrl = Left $ LoggableWarning onUrl $ C8.append "Found an email " bsUrl
@@ -81,15 +80,15 @@ derelativise onUrl bsUrl
                           let errMessage = C8.append "Could not parse URL: " bsUrl
                           in Left (LoggableError onUrl errMessage)
                       Just canonicalised -> Right canonicalised
-    | otherwise = do
-        let mOnUrl = parseAbsoluteURI (show onUrl)
-            mUrl = parseRelative url
-        case (mOnUrl, mUrl) of
-            (Just ou, Just u) -> Right $ ou `urlPlus` u                      
-            x -> let errMessage = C8.concat ["Couldn't derelativise ", C8.pack . show $ x, "right side was: ", bsUrl]
-                 in Left (LoggableError onUrl errMessage)
+    | otherwise = joinParts (parseAbsoluteURI (show onUrl)) (parseRelative url)
 
-    where url = unpack bsUrl
+    where 
+    url = unpack bsUrl
+
+    joinParts :: Maybe URI -> Maybe URI -> Either Loggable CanonicalUrl
+    joinParts  Nothing         _ = Left $ LoggableError onUrl (C8.concat ["Couldn't derelativise left side: ", (C8.pack . show) onUrl])
+    joinParts        _   Nothing = Left $ LoggableError onUrl (C8.concat ["Couldn't derelativise right side: ", bsUrl])
+    joinParts (Just ou) (Just u) = Right $ ou `urlPlus` u
 
 getDomain :: CanonicalUrl -> Maybe Domain
 getDomain (CanonicalUrl u) =
