@@ -18,20 +18,22 @@ import Text.HTML.TagSoup        (Tag (TagOpen), isTagOpenName, isTagCloseName, f
 
 import Data.Either              (partitionEithers)
 
-findPageRedirect :: [Tag ByteString] -> Maybe CanonicalUrl
-findPageRedirect tags = do
+findPageRedirect :: CanonicalUrl -> [Tag ByteString] -> Maybe CanonicalUrl
+findPageRedirect onUrl tags = do
     meta <- getMeta tags
     let content = fromAttrib "content" meta
-    urlSection <- find (C8.isPrefixOf "url") . C8.splitWith (`elem` [' ',';']) $ content
+    urlSection <- find (C8.isPrefixOf "url" . C8.map toLower) . C8.splitWith (`elem` [' ',';']) $ content
     let url = C8.takeWhile (not . isSpace) . snd . breakAfter "=" $ urlSection
-    canonicaliseByteString url
+    case derelativise onUrl url of
+        Left l -> error $ show l --Either stack this?
+        Right r -> Just r
 
     where
     getMeta = headMay
             . filter (\(TagOpen _ attrs) -> elem ("http-equiv","refresh") (map (both (C8.map toLower)) attrs))
             . filter (isTagOpenName "meta")
             . takeWhile (not . isTagCloseName "head")
-            . dropWhile (not . isTagOpenName "head")
+    --      . dropWhile (not . isTagOpenName "head") -- Document may not have a <head>
             . canonicalizeTags
 
 parsePage :: [CanonicalUrl] -> [Tag ByteString] -> ([Loggable], [CanonicalUrl], [Form])
