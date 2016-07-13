@@ -25,6 +25,7 @@ buildRequest requestCookies downloadRequest =
             . basicAuthSettings
             . proxySettings 
             $ req {
+                requestHeaders = customHeaders,
                 redirectCount = 0,
                 cookieJar = Just (createCookieJar requestCookies)
                 }
