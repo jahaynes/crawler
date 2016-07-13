@@ -99,7 +99,7 @@ crawlUrls workers crawlerState threadId =
         let parsedTags = parseTags bodyData
 
         --Give meta refresh a chance to fire
-        case findPageRedirect parsedTags of
+        case findPageRedirect nextUrl parsedTags of
             Just metaRefreshUrl -> do
                 {- Chance of crawler trap here. Perhaps we should 
                     check that metaRefreshUrl hasn't already been visited -}
