@@ -79,6 +79,12 @@ crawlUrls workers crawlerState threadId =
     whileActive threadId (getCrawlerThreads workers) (getCrawlerThreadsToStop workers) $ do
 
         nextUrl <- atomically $ PQ.readQueue threadId (getUrlQueue crawlerState)
+
+        when stepMode $ do
+            putStrLn $ "(Step Mode)... " ++ show nextUrl
+            putStrLn "Enter to continue"
+            const () <$> getLine
+
         cookiesToSend <- atomically . readTVar . getCookieList $ crawlerState
 
         resetThreadClock nextUrl
