@@ -13,8 +13,9 @@ import Data.Maybe
 import qualified Data.Map as M
 import Safe
 import Types
-import Network.HTTP.Conduit     (Request, Cookie, addProxy, applyBasicAuth)
-import Network.URI              (unEscapeString)
+import Network.HTTP.Conduit         (Request, Cookie, addProxy, applyBasicAuth)
+import Network.HTTP.Types.Header    (RequestHeaders, hUserAgent)
+import Network.URI                  (unEscapeString)
 
 numStartCrawlers :: Int
 numStartCrawlers = 20
@@ -41,19 +42,8 @@ discardFragments = True
 shareCookie :: Cookie -> Bool
 shareCookie = const True
 
---Example format for form_instructions.cfg
-{-x = unlines [ "Label=login"
-            , "UrlRegex=http://127.0.0.1:3000/login/"
-            , "FormActionRegex=http://127.0.0.1:3000/submitLogin"
-            , "username=admin"
-            , "password=admin"
-            , ""
-            , "Label=confirm"
-            , "UrlRegex=http://127.0.0.1:3000/confirm/"
-            , "FormActionRegex=http://127.0.0.1:3000/submitConfirm"
-            , "accept=true"
-            , ""
-            ]-}
+customHeaders :: RequestHeaders
+customHeaders = [(hUserAgent, "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:44.0) Gecko/20100101 Crawler/0.1")]
 
 initialiseFormInstructions :: Crawler -> OptionMap -> IO ()
 initialiseFormInstructions crawlerState (OptionMap optionMap) =
