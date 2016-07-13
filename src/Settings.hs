@@ -42,6 +42,9 @@ discardFragments = True
 shareCookie :: Cookie -> Bool
 shareCookie = const True
 
+stepMode :: Bool
+stepMode = False
+
 customHeaders :: RequestHeaders
 customHeaders = [(hUserAgent, "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:44.0) Gecko/20100101 Crawler/0.1")]
 
