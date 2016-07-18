@@ -47,9 +47,9 @@ spockApp = do
         msg <- liftIO workerStatuses
         text . toStrict . T.pack . show $ msg
 
-    get "cookieReport" $ do
+    {- get "cookieReport" $ do
         msg <- liftIO cookieReport
-        text . toStrict . T.pack . show $ msg
+        text . toStrict . T.pack . show $ msg -}
 
     post "idle" $ do
         msg <- liftIO idle
@@ -78,8 +78,8 @@ crawlerStatus = sendAndGetReply $ QuestionMessage GetCrawlerStatus
 workerStatuses :: IO Message
 workerStatuses = sendAndGetReply $ QuestionMessage GetWorkerStatuses
 
-cookieReport :: IO Message
-cookieReport = sendAndGetReply $ QuestionMessage GetCookieReport
+-- cookieReport :: IO Message
+-- cookieReport = sendAndGetReply $ QuestionMessage GetCookieReport
 
 idle :: IO Message
 idle = sendAndGetReply $ CommandMessage Idle
