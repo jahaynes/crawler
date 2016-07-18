@@ -10,7 +10,6 @@ import Shared
 import Types
 import Urls
 
-import Control.Applicative              ((<$>))
 import Control.Concurrent.STM           (atomically, readTVar, modifyTVar')
 import GHC.Conc                         (threadStatus)
 import Network.HTTP.Conduit

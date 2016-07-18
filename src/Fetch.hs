@@ -8,7 +8,6 @@ import Settings
 import Types
 
 import Data.CaseInsensitive         (mk)
-import Control.Applicative          ((<$>))
 import Data.ByteString.Char8        (unpack)
 import Data.ByteString.Lazy.Char8   (toStrict)
 import qualified Data.ByteString    as BS

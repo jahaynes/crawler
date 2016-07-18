@@ -4,7 +4,6 @@ import Urls (getDomain)
 import Types
 import Data.ByteString.Char8        as C8
 import Data.Maybe                   (fromJust)
-import Control.Applicative          ((<$>))
 import Control.Concurrent           (ThreadId)
 import qualified Control.Concurrent.STM.TQueue as Q
 import Control.Monad.STM    (STM)

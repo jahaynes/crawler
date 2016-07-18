@@ -1,7 +1,6 @@
 module Request where
 
 import Data.CaseInsensitive         (mk)
-import Control.Applicative          ((<$>))
 import GHC.Exception                (SomeException)
 import Network.HTTP.Conduit
 import Network.HTTP.Types           (methodPost)
