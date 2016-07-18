@@ -109,14 +109,12 @@ handleMessages crawler workers (QuestionMessage q) = AnswerMessage <$> handleQue
             ss = map (\(n,s) -> n ++ ": " ++ show s) ns
         return $ WorkerStatus ss
 
-    {- Get a report of the shared cookies -}
+    {- Get a report of the shared cookies 
     handleQuestion GetCookieReport = do
         cookies <- atomically . readTVar . getCookieList $ crawler
 
-        --let byDomain = groupBy ((==) `on` cookie_domain) cookies
-
         let rendered = map (\c -> C8.concat [cookie_name c, ": ", cookie_value c, "<br/>"]) cookies
 
-        return $ CookieReport (map C8.unpack rendered)
+        return $ CookieReport (map C8.unpack rendered) -}
 
 handleMessages _ _ (AnswerMessage _) = error "Shouldn't have received AnswerMessage"

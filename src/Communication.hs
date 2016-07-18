@@ -27,7 +27,7 @@ data Command = AddUrl ByteString
 data Question = GetQueueSize QueueName
               | GetCrawlerStatus
               | GetWorkerStatuses
-              | GetCookieReport
+              -- | GetCookieReport
                 deriving (Generic, Show)
 
 data QueueName = UrlQueue
@@ -40,7 +40,7 @@ data Answer = Confirmation
             | QueueSize Int
             | CrawlerStatus CrawlerStatus
             | WorkerStatus [String]
-            | CookieReport [String]
+         --   | CookieReport [String]
               deriving (Generic, Show)
 
 data CrawlerStatus = RunningStatus | IdleStatus | HaltingStatus | Halted deriving (Generic, Eq, Show)
