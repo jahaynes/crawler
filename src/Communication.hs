@@ -7,7 +7,7 @@ import Control.Exception                    (IOException, catch)
 import Control.Monad.Trans.Resource         (runResourceT)
 import Control.Monad.IO.Class               (liftIO)
 import Data.Conduit.Network
-import Data.Serialize
+import Data.Store
 import GHC.Generics                         (Generic)
 import Data.ByteString                      (ByteString)
 
@@ -45,12 +45,12 @@ data Answer = Confirmation
 
 data CrawlerStatus = RunningStatus | IdleStatus | HaltingStatus | Halted deriving (Generic, Eq, Show)
 
-instance Serialize Message
-instance Serialize Command
-instance Serialize Question
-instance Serialize QueueName
-instance Serialize Answer
-instance Serialize CrawlerStatus
+instance Store Message
+instance Store Command
+instance Store Question
+instance Store QueueName
+instance Store Answer
+instance Store CrawlerStatus
 
 sendAndGetReply :: Message -> IO Message
 sendAndGetReply msg = catch sendAndGetReply' handleError
