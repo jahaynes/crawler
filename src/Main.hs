@@ -9,7 +9,6 @@ import Settings
 import Types
 import Workers
 
-import Control.Applicative              ((<$>), (<*>))
 import Control.Concurrent               (threadDelay)
 import Control.Concurrent.STM           (atomically, readTVar)
 import Control.Monad                    (unless)

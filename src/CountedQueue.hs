@@ -1,6 +1,5 @@
 module CountedQueue where
 
-import Control.Applicative ((<$>))
 import Control.Concurrent.STM (STM, atomically)
 import Control.Monad (forever)
 import Control.Monad.IO.Class (MonadIO, liftIO)

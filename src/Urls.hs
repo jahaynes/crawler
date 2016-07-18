@@ -5,7 +5,6 @@ module Urls where
 import Settings
 import Types
 
-import Control.Applicative          ((<$>))
 import Data.ByteString.Char8  as C8 (ByteString, append, concat, pack, unpack, isInfixOf, isPrefixOf, null)
 import Data.ByteString.Search       (breakOn, breakAfter)
 import Data.List.Split              (splitWhen)

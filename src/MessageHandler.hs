@@ -10,12 +10,9 @@ import Shared
 import Types
 import Urls
 
-import Control.Applicative              ((<$>))
 import Control.Concurrent.STM           (atomically, readTVar, modifyTVar')
 import GHC.Conc                         (threadStatus)
-import Network.HTTP.Conduit
 
-import qualified Data.ByteString.Char8      as C8
 import qualified STMContainers.Set          as S
 
 handleMessages :: Crawler -> Workers -> Message -> IO Message

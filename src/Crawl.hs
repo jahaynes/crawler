@@ -12,7 +12,6 @@ import Settings
 import Shared
 import Types
 
-import Control.Applicative              ((<$>), (<*>))
 import Control.Concurrent               (ThreadId, myThreadId)
 import Control.Concurrent.STM           (STM, atomically, readTVar, modifyTVar', newTVarIO)
 import Control.Monad                    (replicateM_, when)
