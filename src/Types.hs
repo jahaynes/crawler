@@ -33,7 +33,6 @@ type StoreFunction = CrawledDocument -> IO ()
 type LogFunction = Loggable -> IO ()
 
 data Crawler = Crawler {
-    getFormInstructions :: TVar SuppliedFormActions,
     getCrawlerStatus :: TVar CrawlerStatus,
     getUrlQueue :: PoliteQueue,  
     getStoreQueue :: CountedQueue CrawledDocument,
@@ -43,7 +42,12 @@ data Crawler = Crawler {
     getUrlPatterns :: Set ByteString,
     getUrlsInProgress :: Set CanonicalUrl,
     getUrlsCompleted :: Set CanonicalUrl,
-    getUrlsFailed :: Map CanonicalUrl String
+    getUrlsFailed :: Map CanonicalUrl String,
+    getCrawlerSettings :: CrawlerSettings
+}
+
+data CrawlerSettings = CrawlerSettings {
+        getFormInstructions :: TVar SuppliedFormActions
 }
 
 data PoliteQueue = PoliteQueue {

@@ -48,8 +48,8 @@ stepMode = False
 customHeaders :: RequestHeaders
 customHeaders = [(hUserAgent, "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:44.0) Gecko/20100101 Crawler/0.1")]
 
-initialiseFormInstructions :: Crawler -> OptionMap -> IO ()
-initialiseFormInstructions crawlerState (OptionMap optionMap) =
+initialiseFormInstructions :: CrawlerSettings -> OptionMap -> IO ()
+initialiseFormInstructions crawlerSettings (OptionMap optionMap) =
 
     case M.lookup (OptionFlag "-ff") optionMap of
         Nothing -> return ()
@@ -57,7 +57,7 @@ initialiseFormInstructions crawlerState (OptionMap optionMap) =
             formFileContents <- mapM readFile formFiles
             let processed = map processFormInstructions formFileContents
                 formInstructions = SuppliedFormActions $ M.unions processed
-            atomically $ writeTVar (getFormInstructions crawlerState) formInstructions
+            atomically $ writeTVar (getFormInstructions crawlerSettings) formInstructions
             putStrLn $ "Inserted Form instructions: \n" ++ show formInstructions 
 
     where

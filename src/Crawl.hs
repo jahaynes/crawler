@@ -28,7 +28,6 @@ import Text.HTML.TagSoup.Fast   (parseTags)
 
 createCrawler :: IO Crawler
 createCrawler = do
-    formInstructions <- newTVarIO emptyFormActions
     crawlerStatus <- newTVarIO RunningStatus
     urlQueue <- PQ.newIO
     storeQueue <- newQueueIO (Bounded 32)
@@ -41,7 +40,13 @@ createCrawler = do
     urlsInProgress <- S.newIO
     urlsCompleted <- S.newIO
     urlsFailed <- M.newIO
-    return $ Crawler formInstructions crawlerStatus urlQueue storeQueue loggingQueue manager cookieList urlPatterns urlsInProgress urlsCompleted urlsFailed
+    crawlerSettings <- createCrawlerSettings
+    return $ Crawler crawlerStatus urlQueue storeQueue loggingQueue manager cookieList urlPatterns urlsInProgress urlsCompleted urlsFailed crawlerSettings
+
+createCrawlerSettings :: IO CrawlerSettings
+createCrawlerSettings = do
+    formInstructions <- newTVarIO emptyFormActions
+    return $ CrawlerSettings formInstructions
 
 setNumCrawlers :: Crawler -> Workers -> Int -> IO ()
 setNumCrawlers crawlerState workers desiredNum = do
@@ -116,7 +121,7 @@ crawlUrls workers crawlerState threadId =
 
             Nothing -> do
                 let (hrefErrors, nextHrefs, forms) = parsePage redirects parsedTags
-                formInstructions <- atomically . readTVar . getFormInstructions $ crawlerState
+                formInstructions <- atomically . readTVar . getFormInstructions . getCrawlerSettings $ crawlerState
                 case selectFormOptions formInstructions forms of
                     Just formRequest -> do
                         let moreCookies = responseCookies ++ cookiesSent

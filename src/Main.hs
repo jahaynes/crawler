@@ -47,7 +47,7 @@ main = do
 
     crawler <- createCrawler
 
-    initialiseFormInstructions crawler optionMap
+    initialiseFormInstructions (getCrawlerSettings crawler) optionMap
 
     initialiseIncludes crawler optionMap
 
