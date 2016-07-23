@@ -47,7 +47,8 @@ data Crawler = Crawler {
 }
 
 data CrawlerSettings = CrawlerSettings {
-        getFormInstructions :: TVar SuppliedFormActions
+    getFormInstructions :: TVar SuppliedFormActions,
+    getProxySettings :: TVar (Maybe ProxySettings)
 }
 
 data PoliteQueue = PoliteQueue {
@@ -135,3 +136,4 @@ runWebIO = runEitherT . runResourceT
 webErr :: String -> ResourceT (EitherT String IO) a
 webErr = lift . left
 
+data ProxySettings = ProxySettings ByteString Int

@@ -13,15 +13,13 @@ import Data.Maybe
 import qualified Data.Map as M
 import Safe
 import Types
-import Network.HTTP.Conduit         (Request, Cookie, addProxy, applyBasicAuth)
+import Network.HTTP.Conduit         (Request, Cookie, applyBasicAuth)
 import Network.HTTP.Types.Header    (RequestHeaders, hUserAgent)
 import Network.URI                  (unEscapeString)
+import Text.Read                    (readMaybe)
 
 numStartCrawlers :: Int
 numStartCrawlers = 20
-
-proxySettings :: Request -> Request
-proxySettings = id -- addProxy "127.0.0.1" 8085
 
 basicAuthSettings :: Request -> Request
 basicAuthSettings = id -- applyBasicAuth "basicUser" "basicPass"
@@ -47,6 +45,23 @@ stepMode = False
 
 customHeaders :: RequestHeaders
 customHeaders = [(hUserAgent, "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:44.0) Gecko/20100101 Crawler/0.1")]
+
+initialiseProxy :: CrawlerSettings -> OptionMap -> IO ()
+initialiseProxy crawlerSettings (OptionMap optionMap) = 
+
+    case parseProxy of
+        Just proxySettings -> atomically $ writeTVar (getProxySettings crawlerSettings) (Just proxySettings)
+        Nothing -> return ()
+
+    where
+    parseProxy :: Maybe ProxySettings
+    parseProxy = do
+        proxy <- headMay =<< M.lookup (OptionFlag "-p") optionMap
+        case splitOn ":" proxy of
+            [address,strPort] -> do
+                port <- readMaybe strPort
+                return $ ProxySettings (C8.pack address) port
+            _ -> Nothing
 
 initialiseFormInstructions :: CrawlerSettings -> OptionMap -> IO ()
 initialiseFormInstructions crawlerSettings (OptionMap optionMap) =

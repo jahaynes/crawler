@@ -24,8 +24,8 @@ import Network.HTTP.Types
 
    TODO - do it before merging and recapture all those Lefts we dropped -}
 
-fetch :: Manager -> [Cookie] -> DownloadRequest -> WebIO DownloadResult
-fetch man requestCookies downloadRequest = do
+fetch :: Manager -> CrawlerSettings -> [Cookie] -> DownloadRequest -> WebIO DownloadResult
+fetch man crawlerSettings requestCookies downloadRequest = do
 
     (response, redirects) <- followRedirects
 
@@ -60,7 +60,7 @@ fetch man requestCookies downloadRequest = do
 
     followRedirects :: WebIO (DownloadSource, [CanonicalUrl])
     followRedirects = do
-        initialRequest <- buildRequest requestCookies downloadRequest
+        initialRequest <- buildRequest crawlerSettings requestCookies downloadRequest
         firstUrl <- canonicaliseRequest initialRequest
         go [firstUrl] maxRedirects initialRequest
 

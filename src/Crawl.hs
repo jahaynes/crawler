@@ -46,7 +46,8 @@ createCrawler = do
 createCrawlerSettings :: IO CrawlerSettings
 createCrawlerSettings = do
     formInstructions <- newTVarIO emptyFormActions
-    return $ CrawlerSettings formInstructions
+    proxySettings <- newTVarIO Nothing
+    return $ CrawlerSettings formInstructions proxySettings
 
 setNumCrawlers :: Crawler -> Workers -> Int -> IO ()
 setNumCrawlers crawlerState workers desiredNum = do
@@ -93,7 +94,7 @@ crawlUrls workers crawlerState threadId =
 
         resetThreadClock nextUrl
 
-        eDownloadResult <- runWebIO $ fetch (getManager crawlerState) cookiesToSend (GetRequest nextUrl)
+        eDownloadResult <- runWebIO $ fetch (getManager crawlerState) (getCrawlerSettings crawlerState) cookiesToSend (GetRequest nextUrl)
 
         case eDownloadResult of
             Left err -> do
@@ -114,7 +115,7 @@ crawlUrls workers crawlerState threadId =
                 {- Chance of crawler trap here. Perhaps we should 
                     check that metaRefreshUrl hasn't already been visited -}
                 let moreCookies = responseCookies ++ cookiesSent
-                eMetaRefreshResponse <- runWebIO $ fetch (getManager crawlerState) moreCookies (GetRequest metaRefreshUrl)
+                eMetaRefreshResponse <- runWebIO $ fetch (getManager crawlerState) (getCrawlerSettings crawlerState) moreCookies (GetRequest metaRefreshUrl)
                 case eMetaRefreshResponse of
                     Left e -> atomically . writeQueue (getLogQueue crawlerState) $ LoggableWarning nextUrl (C8.concat ["Failed to process meta refresh: ", C8.pack (show e)])
                     Right metaRefreshResponse -> processResult metaRefreshResponse nextUrl moreCookies
@@ -125,7 +126,7 @@ crawlUrls workers crawlerState threadId =
                 case selectFormOptions formInstructions forms of
                     Just formRequest -> do
                         let moreCookies = responseCookies ++ cookiesSent
-                        eFormResponse <- runWebIO $ fetch (getManager crawlerState) moreCookies formRequest
+                        eFormResponse <- runWebIO $ fetch (getManager crawlerState) (getCrawlerSettings crawlerState) moreCookies formRequest
                         case eFormResponse of 
                             Left e -> atomically . writeQueue (getLogQueue crawlerState) $ LoggableWarning nextUrl (C8.concat ["Failed to process form: ", C8.pack (show e)])
                             Right formResponse -> processResult formResponse nextUrl moreCookies

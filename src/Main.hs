@@ -49,6 +49,8 @@ main = do
 
     initialiseFormInstructions (getCrawlerSettings crawler) optionMap
 
+    initialiseProxy (getCrawlerSettings crawler) optionMap
+
     initialiseIncludes crawler optionMap
 
     initialiseWorkers crawler defaultStorage defaultLogging
