@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Includes where
+module Initialisation where
 
 import CountedQueue                             (writeQueue)
 import Crawl
@@ -11,9 +11,21 @@ import Urls
 
 import Control.Monad.STM                        (atomically)
 import qualified Data.ByteString.Char8  as C8
-import qualified STMContainers.Set      as S
+import Data.List
+import Data.Maybe                       (mapMaybe)
+import Safe
 import qualified Data.Map               as M
-import Data.Maybe                               (mapMaybe)
+import qualified STMContainers.Set      as S
+
+optionMapFromArgs :: [String] -> OptionMap
+optionMapFromArgs =   OptionMap
+                  <$> M.unionsWith union
+                  .   mapMaybe (\gr -> M.singleton <$> (OptionFlag <$> headMay gr) <*> tailMay gr)
+                  .   filter (maybe False isFlag . headMay)
+                  .   groupBy (\a b -> isFlag a && not (isFlag b))
+
+    where
+    isFlag x = length x > 1 && head x == '-'
 
 initialiseSettings :: Crawler -> OptionMap -> IO ()
 initialiseSettings crawler o@(OptionMap optionMap) = do
