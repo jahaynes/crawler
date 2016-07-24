@@ -27,13 +27,13 @@ defaultLogging = hPrint stderr
 main :: IO ()
 main = do
 
-    optionMap <- optionMapFromArgs <$> getArgs
+    args <- getArgs
 
     _ <- forkServer "localhost" 8000
 
     crawler <- createCrawler
 
-    initialiseSettings crawler optionMap
+    initialiseSettings crawler args
 
     initialiseWorkers crawler defaultStorage defaultLogging
 
@@ -43,5 +43,8 @@ main = do
     run crawlerStatus = do
         halted <- (== Halted) <$> (atomically . readTVar $ crawlerStatus)
         unless halted $ do
-            threadDelay 1000000
+            threadDelay oneSecond
             run crawlerStatus
+
+        where
+        oneSecond = 1000000

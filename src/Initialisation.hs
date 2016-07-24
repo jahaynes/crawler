@@ -27,20 +27,22 @@ optionMapFromArgs =   OptionMap
     where
     isFlag x = length x > 1 && head x == '-'
 
-initialiseSettings :: Crawler -> OptionMap -> IO ()
-initialiseSettings crawler o@(OptionMap optionMap) = do
+initialiseSettings :: Crawler -> [String] -> IO ()
+initialiseSettings crawler args = do
 
-    initialiseFormInstructions (getCrawlerSettings crawler) o
+    let optionMap = optionMapFromArgs args
 
-    initialiseProxy (getCrawlerSettings crawler) o
+    initialiseFormInstructions (getCrawlerSettings crawler) optionMap
 
-    initialiseIncludes
+    initialiseProxy (getCrawlerSettings crawler) optionMap
 
-    initialiseStartUrls
+    initialiseIncludes optionMap
+
+    initialiseStartUrls optionMap
 
     where
-    initialiseIncludes :: IO ()
-    initialiseIncludes = do
+    initialiseIncludes :: OptionMap -> IO ()
+    initialiseIncludes (OptionMap optionMap) = do
 
         case M.lookup (OptionFlag "-i") optionMap of
             Nothing -> return ()
@@ -58,8 +60,8 @@ initialiseSettings crawler o@(OptionMap optionMap) = do
                 atomically . S.insert i . getUrlPatterns $ crawler
                 C8.putStrLn $ C8.concat ["Added pattern: ", i])
 
-    initialiseStartUrls :: IO ()
-    initialiseStartUrls = do
+    initialiseStartUrls :: OptionMap -> IO ()
+    initialiseStartUrls (OptionMap optionMap) = do
 
         case M.lookup (OptionFlag "-u") optionMap of
             Nothing -> return ()
