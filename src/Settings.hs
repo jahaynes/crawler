@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, ScopedTypeVariables #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Settings where
 
@@ -7,11 +7,10 @@ import Types
 
 import Control.Concurrent.STM        (writeTVar, atomically)
 import qualified Data.ByteString.Char8   as C8
-import Data.List
-import Data.List.Split
-import Data.Maybe
+import Data.List                    (partition)
+import Data.List.Split              (splitOn)
+import Data.Maybe                   (mapMaybe)
 import qualified Data.Map as M
-import Prelude hiding (lookup)
 import Network.HTTP.Conduit         (Request, Cookie, applyBasicAuth)
 import Network.HTTP.Types.Header    (RequestHeaders, hUserAgent)
 import Network.URI                  (unEscapeString)

@@ -15,7 +15,7 @@ import Control.Concurrent.STM           (atomically, readTVar)
 import Control.Monad                    (unless)
 
 import System.Environment               (getArgs)
-import System.IO
+import System.IO                        (hPrint, stderr)
 import System.Remote.Monitoring         (forkServer)
 
 defaultStorage :: StoreFunction
