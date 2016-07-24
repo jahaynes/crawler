@@ -53,7 +53,7 @@ getForms onUrl = map asForm . isolateForms
 
 selectFormOptions :: SuppliedFormActions -> [Form] -> Maybe DownloadRequest
 selectFormOptions              _ [] = Nothing
-selectFormOptions suppliedFormActions ((Form formLocation (Action method (RelativeUrl relUrl)) inputs) : fs) = do
+selectFormOptions suppliedFormActions (Form formLocation (Action method (RelativeUrl relUrl)) inputs : fs) = do
 
     let formTargetUrl =
             case derelativise formLocation relUrl of

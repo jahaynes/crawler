@@ -14,7 +14,7 @@ import Types
 
 import Control.Concurrent               (ThreadId, myThreadId)
 import Control.Concurrent.STM           (STM, atomically, readTVar, modifyTVar', newTVarIO)
-import Control.Monad                    (replicateM_, when)
+import Control.Monad                    (replicateM_, when, void)
 import Data.ByteString.Char8      as C8 (ByteString, concat, pack, isInfixOf)
 import Data.List                        ((\\))
 import Data.Maybe                       (isJust)
@@ -88,7 +88,7 @@ crawlUrls workers crawlerState threadId =
         when stepMode $ do
             putStrLn $ "(Step Mode)... " ++ show nextUrl
             putStrLn "Enter to continue"
-            const () <$> getLine
+            void getLine
 
         cookiesToSend <- atomically . readTVar . getCookieList $ crawlerState
 

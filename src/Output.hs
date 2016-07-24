@@ -8,6 +8,8 @@ import Control.Monad.IO.Class           (liftIO)
 import Control.Monad.Trans.Resource     (runResourceT)
 import Data.Conduit
 
+type StoreFunction = CrawledDocument -> IO ()
+
 storePages :: Crawler -> StoreFunction -> IO ()
 storePages crawler storeFunc =
     runResourceT

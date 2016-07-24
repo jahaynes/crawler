@@ -4,33 +4,19 @@ module Main where
 
 import Communication
 import Crawl
-import Includes
-import Settings
+import Errors
+import Initialisation
+import Output
 import Types
 import Workers
 
 import Control.Concurrent               (threadDelay)
 import Control.Concurrent.STM           (atomically, readTVar)
 import Control.Monad                    (unless)
-import Data.List
-import Data.Maybe                       (mapMaybe)
-import qualified Data.Map               as Map
-
-import Safe
 
 import System.Environment               (getArgs)
-import System.IO
+import System.IO                        (hPrint, stderr)
 import System.Remote.Monitoring         (forkServer)
-
-optionMapFromArgs :: [String] -> OptionMap
-optionMapFromArgs =   OptionMap
-                  <$> Map.unionsWith union
-                  .   mapMaybe (\gr -> Map.singleton <$> (OptionFlag <$> headMay gr) <*> tailMay gr)
-                  .   filter (maybe False isFlag . headMay)
-                  .   groupBy (\a b -> isFlag a && not (isFlag b))
-
-    where
-    isFlag x = length x > 1 && head x == '-'
 
 defaultStorage :: StoreFunction
 defaultStorage = print . head . getRedirectChain
@@ -41,17 +27,13 @@ defaultLogging = hPrint stderr
 main :: IO ()
 main = do
 
-    optionMap <- optionMapFromArgs <$> getArgs
+    args <- getArgs
 
     _ <- forkServer "localhost" 8000
 
     crawler <- createCrawler
 
-    initialiseFormInstructions (getCrawlerSettings crawler) optionMap
-
-    initialiseProxy (getCrawlerSettings crawler) optionMap
-
-    initialiseIncludes crawler optionMap
+    initialiseSettings crawler args
 
     initialiseWorkers crawler defaultStorage defaultLogging
 
@@ -61,5 +43,8 @@ main = do
     run crawlerStatus = do
         halted <- (== Halted) <$> (atomically . readTVar $ crawlerStatus)
         unless halted $ do
-            threadDelay 1000000
+            threadDelay oneSecond
             run crawlerStatus
+
+        where
+        oneSecond = 1000000
