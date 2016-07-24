@@ -79,29 +79,31 @@ initialiseFormInstructions crawlerSettings (OptionMap optionMap) =
             putStrLn $ "Inserted Form instructions: \n" ++ show formInstructions 
 
     where
+    processFormInstructions :: String -> M.Map Label (UrlRegex, FormActionRegex, FormParameters)
     processFormInstructions formFile = do
         let ls = filter (not . null) . splitOn [""] . lines $ formFile
             instructions = mapMaybe chunkToInstruction ls
         M.fromList instructions
 
-chunkToInstruction :: [String] -> Maybe (Label, (UrlRegex, FormActionRegex, FormParameters))
-chunkToInstruction chunk = do
+        where
+        chunkToInstruction :: [String] -> Maybe (Label, (UrlRegex, FormActionRegex, FormParameters))
+        chunkToInstruction chunk = do
 
-    let keysAndVals = map (splitOn "=") chunk
+            let keysAndVals = map (splitOn "=") chunk
 
-        tuples = map (\[a,b] -> (a,b))
-               . filter (\x -> length x == 2) $ keysAndVals
+                tuples = map (\[a,b] -> (a,b))
+                    . filter (\x -> length x == 2) $ keysAndVals
 
-        (required, paramStrings) =
-            partition (\x -> fst x `elem` ["Label", "UrlRegex", "FormActionRegex"]) tuples
+                (required, paramStrings) =
+                    partition (\x -> fst x `elem` ["Label", "UrlRegex", "FormActionRegex"]) tuples
 
-    label <- getVal "Label" required
-    urlRegex <- getVal "UrlRegex" required
-    formActionRegex <- getVal "FormActionRegex" required
-    let params = map (both (C8.pack . unEscapeString)) paramStrings
+            label <- getVal "Label" required
+            urlRegex <- getVal "UrlRegex" required
+            formActionRegex <- getVal "FormActionRegex" required
+            let params = map (both (C8.pack . unEscapeString)) paramStrings
 
-    return (Label label, (UrlRegex urlRegex, FormActionRegex formActionRegex, FormParameters params))
+            return (Label label, (UrlRegex urlRegex, FormActionRegex formActionRegex, FormParameters params))
 
-    where
-    getVal :: String -> [(String, String)] -> Maybe C8.ByteString
-    getVal key = headMay . map (C8.pack . snd) . filter (\x -> fst x == key)
+            where
+            getVal :: String -> [(String, String)] -> Maybe C8.ByteString
+            getVal key = headMay . map (C8.pack . snd) . filter (\x -> fst x == key)
