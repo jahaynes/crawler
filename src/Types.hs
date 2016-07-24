@@ -28,10 +28,6 @@ data CrawledDocument = CrawledDocument
                      , getThreadId :: ThreadId
                      } deriving Show
 
-type StoreFunction = CrawledDocument -> IO ()
-
-type LogFunction = Loggable -> IO ()
-
 data Crawler = Crawler {
     getCrawlerStatus :: TVar CrawlerStatus,
     getUrlQueue :: PoliteQueue,  
@@ -114,10 +110,6 @@ data CombinedFormActions = CombinedFormActions Label FormParameters
 data Action = Action Method RelativeUrl deriving Show
 
 newtype RelativeUrl = RelativeUrl ByteString deriving Show
-
-newtype OptionFlag = OptionFlag String deriving (Show, Eq, Ord)
-
-newtype OptionMap = OptionMap (M.Map OptionFlag [String]) deriving Show
 
 getUrl :: DownloadRequest -> CanonicalUrl
 getUrl (GetRequest url) = url

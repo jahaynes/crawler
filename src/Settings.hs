@@ -3,7 +3,7 @@
 module Settings where
 
 import Shared (both)
-import Prelude hiding (lookup)
+import Types
 
 import Control.Concurrent.STM        (writeTVar, atomically)
 import qualified Data.ByteString.Char8   as C8
@@ -11,12 +11,16 @@ import Data.List
 import Data.List.Split
 import Data.Maybe
 import qualified Data.Map as M
-import Safe
-import Types
+import Prelude hiding (lookup)
 import Network.HTTP.Conduit         (Request, Cookie, applyBasicAuth)
 import Network.HTTP.Types.Header    (RequestHeaders, hUserAgent)
 import Network.URI                  (unEscapeString)
+import Safe
 import Text.Read                    (readMaybe)
+
+newtype OptionFlag = OptionFlag String deriving (Show, Eq, Ord)
+
+newtype OptionMap = OptionMap (M.Map OptionFlag [String]) deriving Show
 
 numStartCrawlers :: Int
 numStartCrawlers = 20

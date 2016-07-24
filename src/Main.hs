@@ -4,7 +4,9 @@ module Main where
 
 import Communication
 import Crawl
+import Errors
 import Includes
+import Output
 import Settings
 import Types
 import Workers
@@ -47,11 +49,7 @@ main = do
 
     crawler <- createCrawler
 
-    initialiseFormInstructions (getCrawlerSettings crawler) optionMap
-
-    initialiseProxy (getCrawlerSettings crawler) optionMap
-
-    initialiseIncludes crawler optionMap
+    initialiseSettings crawler optionMap
 
     initialiseWorkers crawler defaultStorage defaultLogging
 
