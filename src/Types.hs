@@ -44,6 +44,7 @@ data Crawler = Crawler {
 
 data CrawlerSettings = CrawlerSettings {
     getFormInstructions :: TVar SuppliedFormActions,
+    getHrefDirections :: TVar [HrefDirection],
     getProxySettings :: TVar (Maybe ProxySettings)
 }
 
@@ -110,6 +111,9 @@ data CombinedFormActions = CombinedFormActions Label FormParameters
 data Action = Action Method RelativeUrl deriving Show
 
 newtype RelativeUrl = RelativeUrl ByteString deriving Show
+
+data HrefDirection = HrefDirection Label UrlRegex HrefRegex deriving Show
+newtype HrefRegex = HrefRegex ByteString deriving Show
 
 getUrl :: DownloadRequest -> CanonicalUrl
 getUrl (GetRequest url) = url

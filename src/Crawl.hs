@@ -4,6 +4,7 @@ module Crawl where
 
 import CountedQueue
 import Communication                    (CrawlerStatus(..))
+import Directions
 import qualified PoliteQueue as PQ
 import Fetch
 import Forms                            (emptyFormActions, selectFormOptions)
@@ -46,8 +47,9 @@ createCrawler = do
 createCrawlerSettings :: IO CrawlerSettings
 createCrawlerSettings = do
     formInstructions <- newTVarIO emptyFormActions
+    hrefDirections <- newTVarIO emptyHrefDirections
     proxySettings <- newTVarIO Nothing
-    return $ CrawlerSettings formInstructions proxySettings
+    return $ CrawlerSettings formInstructions hrefDirections proxySettings
 
 setNumCrawlers :: Crawler -> Workers -> Int -> IO ()
 setNumCrawlers crawlerState workers desiredNum = do
@@ -105,32 +107,43 @@ crawlUrls workers crawlerState threadId =
 
     where
     processResult :: DownloadResult -> CanonicalUrl -> [Cookie] -> IO ()
-    processResult (DownloadResult bodyData responseCookies redirects) nextUrl cookiesSent = do
+    processResult (DownloadResult bodyData responseCookies redirects) nextUrl cookiesSent = do --todo rename nextUrl - attemptedUrl?
 
         let parsedTags = parseTags bodyData
 
-        --Give meta refresh a chance to fire
-        case findPageRedirect nextUrl parsedTags of
-            Just metaRefreshUrl -> do
-                {- Chance of crawler trap here. Perhaps we should 
-                    check that metaRefreshUrl hasn't already been visited -}
+        --TODO - great place for some refactoring
+        mDirection <- findDirection (head redirects) bodyData (getCrawlerSettings crawlerState) 
+        
+        case mDirection of
+            (Just direction) -> do
                 let moreCookies = responseCookies ++ cookiesSent
-                eMetaRefreshResponse <- runWebIO $ fetch (getManager crawlerState) (getCrawlerSettings crawlerState) moreCookies (GetRequest metaRefreshUrl)
-                case eMetaRefreshResponse of
+                eDirectionResponse <- runWebIO $ fetch (getManager crawlerState) (getCrawlerSettings crawlerState) moreCookies (GetRequest direction)
+                case eDirectionResponse of
                     Left e -> atomically . writeQueue (getLogQueue crawlerState) $ LoggableWarning nextUrl (C8.concat ["Failed to process meta refresh: ", C8.pack (show e)])
-                    Right metaRefreshResponse -> processResult metaRefreshResponse nextUrl moreCookies
-
+                    Right directionResponse -> processResult directionResponse nextUrl moreCookies
             Nothing -> do
-                let (hrefErrors, nextHrefs, forms) = parsePage redirects parsedTags
-                formInstructions <- atomically . readTVar . getFormInstructions . getCrawlerSettings $ crawlerState
-                case selectFormOptions formInstructions forms of
-                    Just formRequest -> do
+                --Give meta refresh a chance to fire
+                case findPageRedirect nextUrl parsedTags of --TODO - should this be head redirects
+                    Just metaRefreshUrl -> do
+                        {- Chance of crawler trap here. Perhaps we should 
+                            check that metaRefreshUrl hasn't already been visited -}
                         let moreCookies = responseCookies ++ cookiesSent
-                        eFormResponse <- runWebIO $ fetch (getManager crawlerState) (getCrawlerSettings crawlerState) moreCookies formRequest
-                        case eFormResponse of 
-                            Left e -> atomically . writeQueue (getLogQueue crawlerState) $ LoggableWarning nextUrl (C8.concat ["Failed to process form: ", C8.pack (show e)])
-                            Right formResponse -> processResult formResponse nextUrl moreCookies
-                    Nothing -> storeResponse nextHrefs hrefErrors
+                        eMetaRefreshResponse <- runWebIO $ fetch (getManager crawlerState) (getCrawlerSettings crawlerState) moreCookies (GetRequest metaRefreshUrl)
+                        case eMetaRefreshResponse of
+                            Left e -> atomically . writeQueue (getLogQueue crawlerState) $ LoggableWarning nextUrl (C8.concat ["Failed to process meta refresh: ", C8.pack (show e)])
+                            Right metaRefreshResponse -> processResult metaRefreshResponse nextUrl moreCookies
+
+                    Nothing -> do
+                        let (hrefErrors, nextHrefs, forms) = parsePage redirects parsedTags
+                        formInstructions <- atomically . readTVar . getFormInstructions . getCrawlerSettings $ crawlerState
+                        case selectFormOptions formInstructions forms of
+                            Just formRequest -> do
+                                let moreCookies = responseCookies ++ cookiesSent
+                                eFormResponse <- runWebIO $ fetch (getManager crawlerState) (getCrawlerSettings crawlerState) moreCookies formRequest
+                                case eFormResponse of 
+                                    Left e -> atomically . writeQueue (getLogQueue crawlerState) $ LoggableWarning nextUrl (C8.concat ["Failed to process form: ", C8.pack (show e)])
+                                    Right formResponse -> processResult formResponse nextUrl moreCookies
+                            Nothing -> storeResponse nextHrefs hrefErrors
 
         where
         storeResponse nextHrefs hrefErrors = do
