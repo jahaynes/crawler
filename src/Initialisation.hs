@@ -3,6 +3,7 @@
 module Initialisation where
 
 import           CountedQueue           (writeQueue)
+import           Directions
 import           Crawl
 import           Shared
 import           Types
@@ -10,6 +11,7 @@ import           Urls
 
 import           Control.Concurrent.STM (atomically, writeTVar)
 import qualified Data.ByteString.Char8  as C8
+import qualified Data.ByteString.Lazy.Char8  as L8
 import           Data.List              (groupBy, partition, union)
 import           Data.List.Split        (splitOn)
 import qualified Data.Map               as M
@@ -28,7 +30,7 @@ optionMapFromArgs =   OptionMap
                   <$> M.unionsWith union
                   .   mapMaybe (\gr -> M.singleton <$> (OptionFlag <$> headMay gr) <*> tailMay gr)
                   .   filter (maybe False isFlag . headMay)
-                  .   groupBy (\a b -> isFlag a && not (isFlag b))
+                  .   groupBy (\a b -> isFlag a /= isFlag b)
 
     where
     isFlag x = length x > 1 && head x == '-'
@@ -39,6 +41,8 @@ initialiseSettings crawler args = do
     let optionMap = optionMapFromArgs args
 
     initialiseFormInstructions (getCrawlerSettings crawler) optionMap
+
+    initialiseHrefDirections (getCrawlerSettings crawler) optionMap
 
     initialiseProxy (getCrawlerSettings crawler) optionMap
 
@@ -149,3 +153,12 @@ initialiseSettings crawler args = do
                 getVal :: String -> [(String, String)] -> Maybe C8.ByteString
                 getVal key = headMay . map (C8.pack . snd) . filter (\x -> fst x == key)
 
+    initialiseHrefDirections :: CrawlerSettings -> OptionMap -> IO ()
+    initialiseHrefDirections crawlerSettings (OptionMap optionMap) =
+        case M.lookup (OptionFlag "-df") optionMap of
+            Nothing -> return ()
+            Just [hrefFile] -> do
+                hrefFileContents <- L8.readFile hrefFile
+                let hrefDirections = parseHrefDirections hrefFileContents
+                atomically $ writeTVar (getHrefDirections crawlerSettings) hrefDirections
+                putStrLn $ "Inserted Href Directions: \n" ++ show hrefDirections
