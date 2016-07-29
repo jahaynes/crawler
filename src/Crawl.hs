@@ -126,12 +126,17 @@ crawlUrls workers crawlerState threadId =
                 case findPageRedirect nextUrl parsedTags of --TODO - should this be head redirects
                     Just metaRefreshUrl -> do
                         {- Chance of crawler trap here. Perhaps we should 
-                            check that metaRefreshUrl hasn't already been visited -}
-                        let moreCookies = responseCookies ++ cookiesSent
-                        eMetaRefreshResponse <- runWebIO $ fetch (getManager crawlerState) (getCrawlerSettings crawlerState) moreCookies (GetRequest metaRefreshUrl)
-                        case eMetaRefreshResponse of
-                            Left e -> atomically . writeQueue (getLogQueue crawlerState) $ LoggableWarning nextUrl (C8.concat ["Failed to process meta refresh: ", C8.pack (show e)])
-                            Right metaRefreshResponse -> processResult metaRefreshResponse nextUrl moreCookies
+                            check that metaRefreshUrl hasn't already been visited 
+                        This isn't the best check yet.  Not sure what the best procedure is -}
+
+                        eNotDone <- atomically $ checkNotDone crawlerState metaRefreshUrl
+
+                        when (eNotDone == Right ()) $ do
+                            let moreCookies = responseCookies ++ cookiesSent
+                            eMetaRefreshResponse <- runWebIO $ fetch (getManager crawlerState) (getCrawlerSettings crawlerState) moreCookies (GetRequest metaRefreshUrl)
+                            case eMetaRefreshResponse of
+                                Left e -> atomically . writeQueue (getLogQueue crawlerState) $ LoggableWarning nextUrl (C8.concat ["Failed to process meta refresh: ", C8.pack (show e)])
+                                Right metaRefreshResponse -> processResult metaRefreshResponse nextUrl moreCookies
 
                     Nothing -> do
                         let (hrefErrors, nextHrefs, forms) = parsePage redirects parsedTags
@@ -180,23 +185,31 @@ crawlUrls workers crawlerState threadId =
     resetThreadClock nextUrl = getCurrentTime >>= \c -> atomically . M.insert (c, nextUrl) threadId . getThreadClocks $ workers
         
 processNextUrl :: Crawler -> CanonicalUrl -> IO Success
-processNextUrl crawlerState url = do
-    isAcceptable <- atomically $ checkAgainstIncludePatterns crawlerState url
+processNextUrl crawler url = do
+    isAcceptable <- atomically $ checkAgainstIncludePatterns crawler url
     if isAcceptable
-        then
-            atomically $ do
-                completed <- S.lookup url (getUrlsCompleted crawlerState)
-                inProgress <- S.lookup url (getUrlsInProgress crawlerState)
-                failed <- isJust <$> M.lookup url (getUrlsFailed crawlerState)
-
-                case (completed, inProgress, failed) of
-                    (True,_,_) -> return $ Failure "Already completed URL"
-                    (_,True,_) -> return $ Failure "URL already in progress"
-                    (_,_,True) -> return $ Failure "URL previously failed"
-                    _          -> do
-                        S.insert url (getUrlsInProgress crawlerState)
-                        PQ.writeQueue url (getUrlQueue crawlerState)
+        then atomically $ insertIfNotDone crawler url
         else return $ Failure "URL wasn't acceptable"
+
+insertIfNotDone :: Crawler -> CanonicalUrl -> STM Success
+insertIfNotDone crawler url = do
+    eNotDone <- checkNotDone crawler url
+    case eNotDone of
+        Left l -> return $ Failure l
+        Right () -> do
+            S.insert url (getUrlsInProgress crawler)
+            PQ.writeQueue url (getUrlQueue crawler)
+
+checkNotDone :: Crawler -> CanonicalUrl -> STM (Either ByteString ())
+checkNotDone crawler url = do
+    completed <- S.lookup url (getUrlsCompleted crawler)
+    inProgress <- S.lookup url (getUrlsInProgress crawler)
+    failed <- isJust <$> M.lookup url (getUrlsFailed crawler)
+    case (completed, inProgress, failed) of
+        (True,_,_) -> return $ Left "Already completed URL"
+        (_,True,_) -> return $ Left "URL already in progress"
+        (_,_,True) -> return $ Left "URL previously failed"
+        _          -> return $ Right ()
 
 checkAgainstIncludePatterns :: Crawler -> CanonicalUrl -> STM Bool
 checkAgainstIncludePatterns crawlerState (CanonicalUrl url) =
