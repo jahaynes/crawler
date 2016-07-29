@@ -133,3 +133,7 @@ webErr :: String -> ResourceT (EitherT String IO) a
 webErr = lift . left
 
 data ProxySettings = ProxySettings ByteString Int
+
+class FromCrawledDocument a where
+    fromCrawledDocument :: CrawledDocument -> a
+    toStorableDocument :: a -> ByteString
