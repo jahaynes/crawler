@@ -1,7 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Directions where
-import Control.Concurrent.STM
 import Data.Attoparsec.ByteString.Lazy          (Parser, parse, string, Result(..))
 import Data.Attoparsec.ByteString.Char8         (takeTill, char, skipSpace)
 import Data.ByteString                          (ByteString)
@@ -16,30 +15,23 @@ import Types
 emptyHrefDirections :: [HrefDirection]
 emptyHrefDirections = []
 
-findDirection :: CanonicalUrl -> ByteString -> CrawlerSettings -> IO (Maybe CanonicalUrl)
-findDirection cUrl pageData crawlerSettings = do
+findDirection :: CanonicalUrl -> ByteString -> [HrefDirection] -> Maybe CanonicalUrl
+findDirection (CanonicalUrl url) pageData hrefDirections =
 
-    hds <- atomically . readTVar . getHrefDirections $ crawlerSettings
-    return $ findDirection' cUrl hds
+    headMay . mapMaybe matchOnPage . filter urlIsMatching $ hrefDirections
 
     where
-    findDirection' :: CanonicalUrl -> [HrefDirection] -> Maybe CanonicalUrl
-    findDirection' (CanonicalUrl url) hrefDirections =
+    urlIsMatching :: HrefDirection -> Bool
+    urlIsMatching (HrefDirection _ (UrlRegex ur) _) = url =~ ur
 
-        headMay . mapMaybe matchOnPage . filter urlIsMatching $ hrefDirections
+    matchOnPage :: HrefDirection -> Maybe CanonicalUrl
+    matchOnPage (HrefDirection _ _ (HrefRegex hr)) = do
 
-        where
-        urlIsMatching :: HrefDirection -> Bool
-        urlIsMatching (HrefDirection _ (UrlRegex ur) _) = url =~ ur
+        candidate <- headMay $ concatMap (drop 1) ((pageData =~ hr) :: [[ByteString]])
 
-        matchOnPage :: HrefDirection -> Maybe CanonicalUrl
-        matchOnPage (HrefDirection _ _ (HrefRegex hr)) = do
-
-            candidate <- headMay $ concatMap (drop 1) ((pageData =~ hr) :: [[ByteString]])
-
-            case derelativise cUrl candidate of
-                (Right r) -> Just r
-                (Left _) -> Nothing
+        case derelativise (CanonicalUrl url) candidate of
+            (Right r) -> Just r
+            (Left _) -> Nothing
 
 parseHrefDirections :: L8.ByteString -> [HrefDirection]
 parseHrefDirections f
