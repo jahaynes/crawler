@@ -27,6 +27,8 @@ import qualified STMContainers.Set as S
 import qualified STMContainers.Map as M
 import Text.HTML.TagSoup.Fast   (parseTags)
 
+import System.IO                        (hPrint, hPutStrLn, stderr)
+
 createCrawler :: IO Crawler
 createCrawler = do
     crawlerStatus <- newTVarIO RunningStatus
@@ -46,10 +48,11 @@ createCrawler = do
 
 createCrawlerSettings :: IO CrawlerSettings
 createCrawlerSettings = do
+    crawlOutput <- newTVarIO Nothing
     formInstructions <- newTVarIO emptyFormActions
     hrefDirections <- newTVarIO emptyHrefDirections
     proxySettings <- newTVarIO Nothing
-    return $ CrawlerSettings formInstructions hrefDirections proxySettings
+    return $ CrawlerSettings crawlOutput formInstructions hrefDirections proxySettings
 
 setNumCrawlers :: Crawler -> Workers -> Int -> IO ()
 setNumCrawlers crawlerState workers desiredNum = do
@@ -88,8 +91,8 @@ crawlUrls workers crawlerState threadId =
         nextUrl <- atomically $ PQ.readQueue threadId (getUrlQueue crawlerState)
 
         when stepMode $ do
-            putStrLn $ "(Step Mode)... " ++ show nextUrl
-            putStrLn "Enter to continue"
+            hPutStrLn stderr $ "(Step Mode)... " ++ show nextUrl
+            hPutStrLn stderr "Enter to continue"
             void getLine
 
         cookiesToSend <- atomically . readTVar . getCookieList $ crawlerState
@@ -100,8 +103,8 @@ crawlUrls workers crawlerState threadId =
 
         case eDownloadResult of
             Left err -> do
-                putStrLn $ "Failed to download (thread " ++ show threadId ++ ")"
-                print err
+                hPutStrLn stderr $ "Failed to download (thread " ++ show threadId ++ ")"
+                hPrint stderr err
                 atomically $ failedDownload nextUrl
             Right downloadResult -> processResult downloadResult nextUrl cookiesToSend
 
