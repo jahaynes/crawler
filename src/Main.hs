@@ -6,7 +6,6 @@ import Communication
 import Crawl
 import Errors
 import Initialisation
-import Output
 import Types
 import Workers
 
@@ -18,8 +17,6 @@ import System.Environment               (getArgs)
 import System.IO                        (hPrint, stderr)
 import System.Remote.Monitoring         (forkServer)
 
-defaultStorage :: StoreFunction
-defaultStorage = print . head . getRedirectChain
 
 defaultLogging :: LogFunction
 defaultLogging = hPrint stderr
@@ -35,7 +32,7 @@ main = do
 
     initialiseSettings crawler args
 
-    initialiseWorkers crawler defaultStorage defaultLogging
+    initialiseWorkers crawler defaultLogging
 
     run (getCrawlerStatus crawler)
 

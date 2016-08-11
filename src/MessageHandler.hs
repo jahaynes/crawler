@@ -10,6 +10,7 @@ import Shared
 import Types
 import Urls
 
+import System.IO                        (hPrint, hPutStrLn, stderr)
 import Control.Concurrent.STM           (atomically, readTVar, modifyTVar')
 import GHC.Conc                         (threadStatus)
 
@@ -25,7 +26,7 @@ handleMessages crawler workers (CommandMessage c) = fmap AnswerMessage . handleC
             Nothing -> return . CouldntAnswer $ "Couldn't canonicalise url: " ++ show url
             Just x -> do
                 accepted <- processNextUrl crawler x
-                print accepted
+                hPrint stderr accepted
                 return Confirmation
 
     {- Remove a URL -}
@@ -54,12 +55,12 @@ handleMessages crawler workers (CommandMessage c) = fmap AnswerMessage . handleC
                      return (True, status)
         if willIdle
             then do
-                putStrLn $ "Switching from " ++ show oldStatus ++ " to idle..."
+                hPutStrLn stderr $ "Switching from " ++ show oldStatus ++ " to idle..."
                 setNumCrawlers crawler workers 0
                 return Confirmation
             else do
                 let msg = "Can't start idling from state " ++ show oldStatus
-                putStrLn msg
+                hPutStrLn stderr msg
                 return $ CouldntAnswer msg
 
     {- Tell the crawler to halt -}
@@ -74,12 +75,12 @@ handleMessages crawler workers (CommandMessage c) = fmap AnswerMessage . handleC
                     return True
         if willHalt
             then do
-                putStrLn "Halting..."
+                hPutStrLn stderr "Halting..."
                 setNumCrawlers crawler workers 0
                 return Confirmation
             else do
                 let msg = "Can't halt (was already halting)"
-                putStrLn msg
+                hPutStrLn stderr msg
                 return $ CouldntAnswer msg
 
 handleMessages crawler workers (QuestionMessage q) = AnswerMessage <$> handleQuestion q

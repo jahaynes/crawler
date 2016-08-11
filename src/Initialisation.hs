@@ -18,6 +18,7 @@ import qualified Data.Map               as M
 import           Data.Maybe             (mapMaybe)
 import           Network.URI            (unEscapeString)
 import           Safe
+import           System.IO              (hPutStrLn, stderr)
 import qualified STMContainers.Set      as S
 import           Text.Read              (readMaybe)
 
@@ -40,6 +41,8 @@ initialiseSettings crawler args = do
 
     let optionMap = optionMapFromArgs args
 
+    initialiseStorage (getCrawlerSettings crawler) optionMap
+
     initialiseFormInstructions (getCrawlerSettings crawler) optionMap
 
     initialiseHrefDirections (getCrawlerSettings crawler) optionMap
@@ -51,6 +54,14 @@ initialiseSettings crawler args = do
     initialiseStartUrls optionMap
 
     where
+    initialiseStorage :: CrawlerSettings -> OptionMap -> IO ()
+    initialiseStorage crawlerSettings (OptionMap optionMap) =
+        case M.lookup (OptionFlag "-wf") optionMap of
+            Nothing -> return ()
+            Just [warcFile] -> do
+                atomically $ writeTVar (getCrawlOutput crawlerSettings) (Just (WarcFile warcFile))
+                hPutStrLn stderr $ "Writing output to: " ++ warcFile ++ "\n"
+
     initialiseIncludes :: OptionMap -> IO ()
     initialiseIncludes (OptionMap optionMap) = do
 
@@ -68,7 +79,7 @@ initialiseSettings crawler args = do
         insertIncludes =
             mapM_ (\i -> do
                 atomically . S.insert i . getUrlPatterns $ crawler
-                C8.putStrLn $ C8.concat ["Added pattern: ", i])
+                C8.hPutStrLn stderr $ C8.concat ["Added pattern: ", i])
 
     initialiseStartUrls :: OptionMap -> IO ()
     initialiseStartUrls (OptionMap optionMap) = do
@@ -91,7 +102,7 @@ initialiseSettings crawler args = do
             mapM_ (\cu@(CanonicalUrl u)-> do
                 result <- processNextUrl crawler cu
                 case result of
-                    Success -> C8.putStrLn $ C8.concat ["Added Url: ", u]
+                    Success -> C8.hPutStrLn stderr $ C8.concat ["Added Url: ", u]
                     Failure reason -> atomically $ writeQueue (getLogQueue crawler) (LoggableError cu (C8.concat ["Could not add Url: ", u, "\n", "Reason: ", reason])))
 
     initialiseProxy :: CrawlerSettings -> OptionMap -> IO ()
@@ -121,7 +132,7 @@ initialiseSettings crawler args = do
                 let processed = map processFormInstructions formFileContents
                     formInstructions = SuppliedFormActions $ M.unions processed
                 atomically $ writeTVar (getFormInstructions crawlerSettings) formInstructions
-                putStrLn $ "Inserted Form instructions: \n" ++ show formInstructions
+                hPutStrLn stderr $ "Inserted Form instructions: \n" ++ show formInstructions
 
         where
         processFormInstructions :: String -> M.Map Label (UrlRegex, FormActionRegex, FormParameters)
@@ -161,4 +172,4 @@ initialiseSettings crawler args = do
                 hrefFileContents <- L8.readFile hrefFile
                 let hrefDirections = parseHrefDirections hrefFileContents
                 atomically $ writeTVar (getHrefDirections crawlerSettings) hrefDirections
-                putStrLn $ "Inserted Href Directions: \n" ++ show hrefDirections
+                hPutStrLn stderr $ "Inserted Href Directions: \n" ++ show hrefDirections

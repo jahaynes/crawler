@@ -43,6 +43,7 @@ data Crawler = Crawler {
 }
 
 data CrawlerSettings = CrawlerSettings {
+    getCrawlOutput :: TVar (Maybe Output),
     getFormInstructions :: TVar SuppliedFormActions,
     getHrefDirections :: TVar [HrefDirection],
     getProxySettings :: TVar (Maybe ProxySettings)
@@ -62,6 +63,8 @@ data Workers = Workers {
     getActiveThreads :: Map ThreadId String,
     getThreadClocks :: Map ThreadId (UTCTime, CanonicalUrl)
 }
+
+data Output = WarcFile FilePath
 
 newtype CanonicalUrl = CanonicalUrl ByteString deriving Ord
 
