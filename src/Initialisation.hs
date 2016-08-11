@@ -67,7 +67,9 @@ initialiseSettings crawler args = do
 
         case M.lookup (OptionFlag "-i") optionMap of
             Nothing -> return ()
-            Just includePatterns -> insertIncludes (map C8.pack includePatterns)
+            Just strIncludePatterns -> do
+                let includes = concatMap (splitOn ",") strIncludePatterns
+                insertIncludes (map C8.pack includes)
 
         case M.lookup (OptionFlag "-if") optionMap of
             Nothing -> return ()
