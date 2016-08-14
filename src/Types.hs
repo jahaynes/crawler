@@ -9,6 +9,7 @@ import Control.Monad.Trans.Resource     (ResourceT, runResourceT)
 import Data.ByteString.Char8            (ByteString, unpack)
 import Data.Conduit                     (ResumableSource)
 import Data.Hashable                    (Hashable, hashWithSalt)
+import Data.List                        (nub)
 
 import qualified Data.Map       as M
 
@@ -23,10 +24,25 @@ import STMContainers.Map                (Map)
 import STMContainers.Set                (Set, stream)
 
 data CrawledDocument = CrawledDocument
-                     { getRedirectChain :: [CanonicalUrl]
+                     { getRedirectChain :: RedirectChain
                      , getContent :: ByteString
                      , getThreadId :: ThreadId
                      } deriving Show
+
+data RedirectChain = RedirectChain
+                   { getAttemptedUrl :: CanonicalUrl
+                   , getCurrentUrl :: CanonicalUrl
+                   , getOtherUrlsInOther :: [CanonicalUrl]
+                   } deriving Show
+
+startRedirectChain :: DownloadRequest -> RedirectChain
+startRedirectChain request = let attemptedUrl = getUrl request in RedirectChain attemptedUrl attemptedUrl []
+
+allRedirectUrls :: RedirectChain -> [CanonicalUrl] --nub shouldn't be necessary here
+allRedirectUrls (RedirectChain a c os) = nub (a:c:os)
+
+appendRedirect :: RedirectChain -> CanonicalUrl -> RedirectChain
+appendRedirect (RedirectChain a c os) u = RedirectChain a u (c:os)
 
 data Crawler = Crawler {
     getCrawlerStatus :: TVar CrawlerStatus,
@@ -99,7 +115,7 @@ data DownloadRequest = GetRequest CanonicalUrl
 
 type DownloadSource = Response (ResumableSource WebIO ByteString)
 
-data DownloadResult = DownloadResult !ByteString ![Cookie] ![CanonicalUrl]
+data DownloadResult = DownloadResult !ByteString ![Cookie] !RedirectChain
 
 newtype UrlRegex = UrlRegex ByteString deriving Show
 newtype FormActionRegex = FormActionRegex ByteString deriving Show

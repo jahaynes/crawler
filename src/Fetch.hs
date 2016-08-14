@@ -35,13 +35,9 @@ fetch man crawlerSettings requestCookies downloadRequest = do
 
     content <- downloadBodySource response
 
-    --TODO - see if this dedupe / append is necessary
-    return $ DownloadResult content responseCookies (dedupe (redirects ++ [getUrl downloadRequest]))
+    return $ DownloadResult content responseCookies redirects
 
     where
-    dedupe :: [CanonicalUrl] -> [CanonicalUrl]
-    dedupe = map head . group
-
     checkSize :: DownloadSource -> WebIO ()
     checkSize res = case getContentLength of
                     Just x | x <= maxContentLength -> return ()
@@ -58,16 +54,15 @@ fetch man crawlerSettings requestCookies downloadRequest = do
     downloadBodySource :: DownloadSource -> WebIO BS.ByteString
     downloadBodySource res = responseBody res $$+- CL.map (BS.take maxContentLength) $= (toStrict <$> sinkLbs)
 
-    followRedirects :: WebIO (DownloadSource, [CanonicalUrl])
+    followRedirects :: WebIO (DownloadSource, RedirectChain)
     followRedirects = do
         initialRequest <- buildRequest crawlerSettings requestCookies downloadRequest
-        firstUrl <- canonicaliseRequest initialRequest
-        go [firstUrl] maxRedirects initialRequest
+        go (startRedirectChain downloadRequest) maxRedirects initialRequest
 
         where
-        go :: [CanonicalUrl] -> Int -> Request -> WebIO (DownloadSource, [CanonicalUrl])
+        go :: RedirectChain -> Int -> Request -> WebIO (DownloadSource, RedirectChain)
         go      _ 0   _ = webErr "Too many redirects.  Aborting."
-        go redirs n req = do
+        go redirectChain n req = do
             res <- http req man
             case statusCode . responseStatus $ res of
                 302 -> do
@@ -76,6 +71,6 @@ fetch man crawlerSettings requestCookies downloadRequest = do
                     case getRedirectedRequest req resHeaders resCookieJar 302 of --extract this into a webio
                         Just redirReq -> do
                             nextUrl <- canonicaliseRequest redirReq
-                            go (nextUrl:redirs) (n-1) redirReq
+                            go (appendRedirect redirectChain nextUrl) (n-1) redirReq
                         Nothing -> webErr "Could not create redirect request"
-                _   -> return (res, redirs)
+                _   -> return (res, redirectChain)

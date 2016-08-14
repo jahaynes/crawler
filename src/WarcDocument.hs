@@ -23,9 +23,11 @@ instance FromCrawledDocument WarcEntry where
             contentLength = HeaderLine (MandatoryKey ContentLength) len
             originalContentLength = HeaderLine (CustomKey (UnknownKey "Original-Content-Length")) len
             uncompressedContentLength = HeaderLine (CustomKey UncompressedContentLength) len
-            (CanonicalUrl url) = last redirectChain
+            (CanonicalUrl urla) = getAttemptedUrl redirectChain
+            (CanonicalUrl url) = getCurrentUrl redirectChain
             warcRecordId = HeaderLine (MandatoryKey WarcRecordId) (StringValue url)
             warcTargetURI = HeaderLine (OptionalKey WarcTargetURI) (StringValue url)
+            attemptedUrl = HeaderLine (CustomKey (UnknownKey "Attempted-Url")) (StringValue urla)
             warcType = HeaderLine (CustomKey (UnknownKey "WARC-Type")) (StringValue "response")
 
             header = WarcHeader version [
@@ -33,6 +35,7 @@ instance FromCrawledDocument WarcEntry where
                         contentLength,
                         originalContentLength,
                         uncompressedContentLength,
+                        attemptedUrl,
                         warcRecordId,
                         warcTargetURI,
                         warcType]

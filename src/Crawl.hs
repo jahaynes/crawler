@@ -46,13 +46,14 @@ createCrawler = do
     crawlerSettings <- createCrawlerSettings
     return $ Crawler crawlerStatus urlQueue storeQueue loggingQueue manager cookieList urlPatterns urlsInProgress urlsCompleted urlsFailed crawlerSettings
 
-createCrawlerSettings :: IO CrawlerSettings
-createCrawlerSettings = do
-    crawlOutput <- newTVarIO Nothing
-    formInstructions <- newTVarIO emptyFormActions
-    hrefDirections <- newTVarIO emptyHrefDirections
-    proxySettings <- newTVarIO Nothing
-    return $ CrawlerSettings crawlOutput formInstructions hrefDirections proxySettings
+    where
+    createCrawlerSettings :: IO CrawlerSettings
+    createCrawlerSettings = do
+        crawlOutput <- newTVarIO Nothing
+        formInstructions <- newTVarIO emptyFormActions
+        hrefDirections <- newTVarIO emptyHrefDirections
+        proxySettings <- newTVarIO Nothing
+        return $ CrawlerSettings crawlOutput formInstructions hrefDirections proxySettings
 
 setNumCrawlers :: Crawler -> Workers -> Int -> IO ()
 setNumCrawlers crawlerState workers desiredNum = do
@@ -106,7 +107,7 @@ crawlUrls workers crawlerState threadId =
                 hPutStrLn stderr $ "Failed to download (thread " ++ show threadId ++ ")"
                 hPrint stderr err
                 atomically $ failedDownload nextUrl
-            Right downloadResult -> processResult downloadResult nextUrl cookiesToSend
+            Right downloadResult -> processResult downloadResult cookiesToSend
 
     where
     resetThreadClock :: CanonicalUrl -> IO ()
@@ -120,33 +121,34 @@ crawlUrls workers crawlerState threadId =
         writeQueue (getLogQueue crawlerState) (LoggableError attemptedUrl (C8.pack errMsg))
 
     --TODO - great place for some refactoring
-    processResult :: DownloadResult -> CanonicalUrl -> [Cookie] -> IO ()
-    processResult (DownloadResult bodyData responseCookies redirects) nextUrl cookiesSent = do --todo rename nextUrl - attemptedUrl?
+    processResult :: DownloadResult -> [Cookie] -> IO ()
+    processResult (DownloadResult bodyData responseCookies redirectChain) cookiesSent = do
 
-        let parsedTags = parseTags bodyData
+        let currentUrl = getCurrentUrl redirectChain
+            parsedTags = parseTags bodyData
             moreCookies = responseCookies ++ cookiesSent
 
         directionSettings <- atomically . readTVar . getHrefDirections . getCrawlerSettings $ crawlerState
 
-        case findDirection (head redirects) bodyData directionSettings of
+        case findDirection currentUrl bodyData directionSettings of
             (Just direction) -> doFormDirection direction moreCookies
             Nothing ->
-                case findPageRedirect nextUrl parsedTags of --TODO - should this be head redirects
+                case findPageRedirect currentUrl parsedTags of --TODO - should this be head redirects
                     Just metaRefreshUrl -> doMetaRedirects metaRefreshUrl moreCookies
                     Nothing -> do
-                        let (hrefErrors, nextHrefs, forms) = parsePage redirects parsedTags
+                        let (hrefErrors, nextHrefs, forms) = parsePage currentUrl parsedTags
                         formInstructions <- atomically . readTVar . getFormInstructions . getCrawlerSettings $ crawlerState
                         case selectFormOptions formInstructions forms of
                              Just formRequest -> doFormInstruction formRequest moreCookies
-                             Nothing -> storeResponse crawlerState responseCookies cookiesSent redirects nextHrefs hrefErrors bodyData threadId nextUrl
+                             Nothing -> storeResponse crawlerState responseCookies cookiesSent redirectChain nextHrefs hrefErrors bodyData threadId
 
         where
         doFormDirection direction moreCookies = do
-
+            let currentUrl = getCurrentUrl redirectChain
             eDirectionResponse <- runWebIO $ fetch (getManager crawlerState) (getCrawlerSettings crawlerState) moreCookies (GetRequest direction)
             case eDirectionResponse of
-                Left e -> atomically . writeQueue (getLogQueue crawlerState) $ LoggableWarning nextUrl (C8.concat ["Failed to process meta refresh: ", C8.pack (show e)])
-                Right directionResponse -> processResult directionResponse nextUrl moreCookies
+                Left e -> atomically . writeQueue (getLogQueue crawlerState) $ LoggableWarning currentUrl (C8.concat ["Failed to process meta refresh: ", C8.pack (show e)])
+                Right directionResponse -> processResult directionResponse moreCookies
 
         --Give meta refresh a chance to fire
         doMetaRedirects metaRefreshUrl moreCookies = do
@@ -157,32 +159,34 @@ crawlUrls workers crawlerState threadId =
             eNotDone <- atomically $ checkNotDone crawlerState metaRefreshUrl
 
             when (eNotDone == Right ()) $ do
+                let currentUrl = getCurrentUrl redirectChain
                 eMetaRefreshResponse <- runWebIO $ fetch (getManager crawlerState) (getCrawlerSettings crawlerState) moreCookies (GetRequest metaRefreshUrl)
                 case eMetaRefreshResponse of
-                    Left e -> atomically . writeQueue (getLogQueue crawlerState) $ LoggableWarning nextUrl (C8.concat ["Failed to process meta refresh: ", C8.pack (show e)])
-                    Right metaRefreshResponse -> processResult metaRefreshResponse nextUrl moreCookies
+                    Left e -> atomically . writeQueue (getLogQueue crawlerState) $ LoggableWarning currentUrl (C8.concat ["Failed to process meta refresh: ", C8.pack (show e)])
+                    Right metaRefreshResponse -> processResult metaRefreshResponse moreCookies
 
         doFormInstruction formRequest moreCookies = do
+            let currentUrl = getCurrentUrl redirectChain
             eFormResponse <- runWebIO $ fetch (getManager crawlerState) (getCrawlerSettings crawlerState) moreCookies formRequest
             case eFormResponse of 
-                Left e -> atomically . writeQueue (getLogQueue crawlerState) $ LoggableWarning nextUrl (C8.concat ["Failed to process form: ", C8.pack (show e)])
-                Right formResponse -> processResult formResponse nextUrl moreCookies
+                Left e -> atomically . writeQueue (getLogQueue crawlerState) $ LoggableWarning currentUrl (C8.concat ["Failed to process form: ", C8.pack (show e)])
+                Right formResponse -> processResult formResponse moreCookies
 
-storeResponse crawlerState responseCookies cookiesSent redirects nextHrefs hrefErrors bodyData threadId nextUrl = do
-    included <- atomically $ checkAgainstIncludePatterns crawlerState (head redirects)
+storeResponse crawlerState responseCookies cookiesSent redirectChain nextHrefs hrefErrors bodyData threadId = do
+    included <- atomically $ checkAgainstIncludePatterns crawlerState (getAttemptedUrl redirectChain)
     when included $ do
         atomically $ shareCookies crawlerState (responseCookies \\ cookiesSent)
         mapM_ (atomically . writeQueue (getLogQueue crawlerState)) hrefErrors
-        atomically $ successfulDownload nextUrl
+        atomically successfulDownload
         mapM_ (processNextUrl crawlerState) nextHrefs  
 
     where
-    successfulDownload :: CanonicalUrl -> STM ()
-    successfulDownload attemptedUrl = do
-        S.delete attemptedUrl (getUrlsInProgress crawlerState)
-        mapM_ (\u -> S.insert u (getUrlsCompleted crawlerState)) redirects
+    successfulDownload :: STM ()
+    successfulDownload = do
+        S.delete (getAttemptedUrl redirectChain) (getUrlsInProgress crawlerState)
+        mapM_ (`S.insert` (getUrlsCompleted crawlerState)) (allRedirectUrls redirectChain)
         let crawledDocument = CrawledDocument
-                            { getRedirectChain = redirects
+                            { getRedirectChain = redirectChain
                             , getContent = bodyData
                             , getThreadId = threadId
                             }

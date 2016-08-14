@@ -19,12 +19,12 @@ import Text.HTML.TagSoup        (Tag (TagOpen), isTagOpenName, isTagCloseName, f
 import Data.Either              (partitionEithers)
 
 findPageRedirect :: CanonicalUrl -> [Tag ByteString] -> Maybe CanonicalUrl
-findPageRedirect onUrl tags = do
+findPageRedirect currentUrl tags = do
     meta <- getMeta tags
     let content = fromAttrib "content" meta
     urlSection <- find (C8.isPrefixOf "url" . C8.map toLower) . C8.splitWith (`elem` [' ',';']) $ content
     let url = C8.takeWhile (not . isSpace) . snd . breakAfter "=" $ urlSection
-    case derelativise onUrl url of
+    case derelativise currentUrl url of
         Left l -> error $ show l --Either stack this?
         Right r -> Just r
 
@@ -36,15 +36,14 @@ findPageRedirect onUrl tags = do
     --      . dropWhile (not . isTagOpenName "head") -- Document may not have a <head>
             . canonicalizeTags
 
-parsePage :: [CanonicalUrl] -> [Tag ByteString] -> ([Loggable], [CanonicalUrl], [Form])
-parsePage redirects tags = do
-    let onUrl = head redirects
-        (loggables, urls) = partitionEithers . getRawHrefs onUrl $ tags
-        forms = getForms onUrl tags
+parsePage :: CanonicalUrl -> [Tag ByteString] -> ([Loggable], [CanonicalUrl], [Form])
+parsePage currentUrl tags = do
+    let (loggables, urls) = partitionEithers . getRawHrefs currentUrl $ tags
+        forms = getForms currentUrl tags
     (loggables, urls, forms)
 
 getRawHrefs :: CanonicalUrl -> [Tag ByteString] -> [Either Loggable CanonicalUrl]
-getRawHrefs onUrl = map (derelativise onUrl . trim . snd)
-                  . filter (\(k,_) -> mk k == mk "href")
-                  . concatMap (\(TagOpen _ attribs) -> attribs)
-                  . filter (isTagOpenName "a") 
+getRawHrefs currentUrl = map (derelativise currentUrl . trim . snd)
+                       . filter (\(k,_) -> mk k == mk "href")
+                       . concatMap (\(TagOpen _ attribs) -> attribs)
+                       . filter (isTagOpenName "a") 
