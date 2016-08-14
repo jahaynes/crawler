@@ -183,6 +183,7 @@ storeResponse crawlerState responseCookies cookiesSent redirectChain nextHrefs h
     where
     successfulDownload :: STM ()
     successfulDownload = do
+        --Be more explicit about when we add and delete URLs.  perhaps move to new file?
         S.delete (getAttemptedUrl redirectChain) (getUrlsInProgress crawlerState)
         mapM_ (`S.insert` (getUrlsCompleted crawlerState)) (allRedirectUrls redirectChain)
         let crawledDocument = CrawledDocument
@@ -204,6 +205,7 @@ processNextUrl crawler url = do
         then atomically $ insertIfNotDone crawler url
         else return $ Failure "URL wasn't acceptable"
 
+--I don't like this
 insertIfNotDone :: Crawler -> CanonicalUrl -> STM Success
 insertIfNotDone crawler url = do
     eNotDone <- checkNotDone crawler url
