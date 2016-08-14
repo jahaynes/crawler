@@ -57,15 +57,16 @@ fetch man crawlerSettings requestCookies downloadRequest = do
 
 followRedirects :: Int -> Manager -> RedirectChain -> Request -> WebIO (DownloadSource, RedirectChain)
 followRedirects 0   _             _   _ = webErr "Too many redirects.  Aborting."
-followRedirects n man redirectChain req = do
-    res <- http req man
-    case statusCode . responseStatus $ res of
+followRedirects n man redirectChain req = http req man >>= \response ->
+    case statusCode . responseStatus $ response of
         302 -> do
-            let resHeaders = responseHeaders res
-                resCookieJar = responseCookieJar res
-            case getRedirectedRequest req resHeaders resCookieJar 302 of --extract this into a webio
-                Just redirReq -> do
-                    nextUrl <- canonicaliseRequest redirReq
-                    followRedirects (n-1) man (appendRedirect redirectChain nextUrl) redirReq
-                Nothing -> webErr "Could not create redirect request"
-        _   -> return (res, redirectChain)
+            nextRedirect <- getNextRedirect req response
+            nextUrl <- canonicaliseRequest nextRedirect
+            followRedirects (n-1) man (appendRedirect redirectChain nextUrl) nextRedirect
+        _   -> return (response, redirectChain)
+
+getNextRedirect :: Request -> Response a -> WebIO Request
+getNextRedirect req res =
+    case getRedirectedRequest req (responseHeaders res) (responseCookieJar res) 302 of
+        Just redirReq -> return redirReq
+        Nothing -> webErr "Could not create redirect request"
