@@ -27,6 +27,7 @@ instance FromCrawledDocument WarcEntry where
             (CanonicalUrl url) = getCurrentUrl redirectChain
             warcRecordId = HeaderLine (MandatoryKey WarcRecordId) (StringValue url)
             warcTargetURI = HeaderLine (OptionalKey WarcTargetURI) (StringValue url)
+            warcThreadId = HeaderLine (CustomKey (UnknownKey "Thread-Id")) (StringValue (C8.pack $ show threadId))
             attemptedUrl = HeaderLine (CustomKey (UnknownKey "Attempted-Url")) (StringValue urla)
             warcType = HeaderLine (CustomKey (UnknownKey "WARC-Type")) (StringValue "response")
 
@@ -35,6 +36,7 @@ instance FromCrawledDocument WarcEntry where
                         contentLength,
                         originalContentLength,
                         uncompressedContentLength,
+                        warcThreadId,
                         attemptedUrl,
                         warcRecordId,
                         warcTargetURI,

@@ -14,7 +14,6 @@ import qualified Data.ByteString    as BS
 import Data.Conduit                 (($$+-), ($=))
 import Data.Conduit.Binary          (sinkLbs)
 import qualified Data.Conduit.List  as CL (map)
-import Data.List                    (group)
 import Network.HTTP.Conduit
 import Safe                         (readMay)
 import Network.HTTP.Types           
@@ -27,7 +26,9 @@ import Network.HTTP.Types
 fetch :: Manager -> CrawlerSettings -> [Cookie] -> DownloadRequest -> WebIO DownloadResult
 fetch man crawlerSettings requestCookies downloadRequest = do
 
-    (response, redirects) <- followRedirects
+    initialRequest <- buildRequest crawlerSettings requestCookies downloadRequest
+
+    (response, redirects) <- followRedirects maxRedirects man (startRedirectChain downloadRequest) initialRequest
 
     let responseCookies = destroyCookieJar . responseCookieJar $ response
 
@@ -54,23 +55,17 @@ fetch man crawlerSettings requestCookies downloadRequest = do
     downloadBodySource :: DownloadSource -> WebIO BS.ByteString
     downloadBodySource res = responseBody res $$+- CL.map (BS.take maxContentLength) $= (toStrict <$> sinkLbs)
 
-    followRedirects :: WebIO (DownloadSource, RedirectChain)
-    followRedirects = do
-        initialRequest <- buildRequest crawlerSettings requestCookies downloadRequest
-        go (startRedirectChain downloadRequest) maxRedirects initialRequest
-
-        where
-        go :: RedirectChain -> Int -> Request -> WebIO (DownloadSource, RedirectChain)
-        go      _ 0   _ = webErr "Too many redirects.  Aborting."
-        go redirectChain n req = do
-            res <- http req man
-            case statusCode . responseStatus $ res of
-                302 -> do
-                    let resHeaders = responseHeaders res
-                        resCookieJar = responseCookieJar res
-                    case getRedirectedRequest req resHeaders resCookieJar 302 of --extract this into a webio
-                        Just redirReq -> do
-                            nextUrl <- canonicaliseRequest redirReq
-                            go (appendRedirect redirectChain nextUrl) (n-1) redirReq
-                        Nothing -> webErr "Could not create redirect request"
-                _   -> return (res, redirectChain)
+followRedirects :: Int -> Manager -> RedirectChain -> Request -> WebIO (DownloadSource, RedirectChain)
+followRedirects 0   _             _   _ = webErr "Too many redirects.  Aborting."
+followRedirects n man redirectChain req = do
+    res <- http req man
+    case statusCode . responseStatus $ res of
+        302 -> do
+            let resHeaders = responseHeaders res
+                resCookieJar = responseCookieJar res
+            case getRedirectedRequest req resHeaders resCookieJar 302 of --extract this into a webio
+                Just redirReq -> do
+                    nextUrl <- canonicaliseRequest redirReq
+                    followRedirects (n-1) man (appendRedirect redirectChain nextUrl) redirReq
+                Nothing -> webErr "Could not create redirect request"
+        _   -> return (res, redirectChain)
