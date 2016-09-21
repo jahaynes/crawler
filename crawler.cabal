@@ -19,7 +19,6 @@ executable crawler
                        containers,
                        either,
                        ekg,
-                       fast-tagsoup,
                        hashable,
                        http-client,
                        http-conduit,
@@ -30,8 +29,7 @@ executable crawler
                        split,
                        stm,
                        stm-containers,
-                       network-uri,
-                       regex-pcre,
+                       network-uri,  
                        regex-posix,
                        safe,
                        store,
@@ -46,7 +44,7 @@ executable crawler
 
 executable monitor
   main-is:             Monitor.hs
-  build-depends:       base, bytestring, blaze-html, blaze-markup, conduit, conduit-extra, resourcet, shakespeare, Spock, store, wai-middleware-static, text, transformers
+  build-depends:       base, bytestring, blaze-html, blaze-markup, conduit, conduit-extra, resourcet, shakespeare, Spock <= 0.10.0.1 , store, wai-middleware-static, text, transformers
   hs-source-dirs:      src
   default-language:    Haskell2010
 

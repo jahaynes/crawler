@@ -25,7 +25,7 @@ import Network.Connection               (TLSSettings (TLSSettingsSimple))
 import qualified ListT             as L
 import qualified STMContainers.Set as S
 import qualified STMContainers.Map as M
-import Text.HTML.TagSoup.Fast   (parseTags)
+import Text.HTML.TagSoup                (parseTags)
 
 import System.IO                        (hPrint, hPutStrLn, stderr)
 

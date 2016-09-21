@@ -11,7 +11,7 @@ import qualified Data.Map       as M
 import Data.Maybe               (mapMaybe)
 import Safe                     (headMay)
 import Text.HTML.TagSoup
-import Text.Regex.PCRE          ((=~))
+import Text.Regex.Posix         ((=~))
 import Network.HTTP.Types       (Method, methodGet)
 
 emptyFormActions :: SuppliedFormActions
