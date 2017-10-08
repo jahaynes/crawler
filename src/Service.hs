@@ -24,11 +24,9 @@ import Control.Monad.IO.Class
 import qualified Data.ByteString.Char8 as C8
 import qualified Data.ByteString.Lazy.Char8 as L8
 import GHC.Conc               (threadStatus)
-import Network.Wai
-import Network.Wai.Handler.Warp
+import Network.Wai.Handler.Warp (run)
 import Servant
 import qualified STMContainers.Set          as S
---import System.IO
 
 type CrawlerApi = "status"                                      :> Get '[JSON] CrawlerStatus
              :<|> "workerStatus"                                :> Get '[JSON] [String]
