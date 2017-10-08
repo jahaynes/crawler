@@ -82,12 +82,10 @@ instance Hashable CanonicalUrl where
 instance Show CanonicalUrl where
     show (CanonicalUrl bs) = unpack bs
 
-data Loggable = LoggableWarning CanonicalUrl ByteString
-              | LoggableError CanonicalUrl ByteString deriving Show
-
-type Reason = ByteString
-
-data Success = Success | Failure Reason deriving Show
+data Loggable = CrawlWarning CanonicalUrl ByteString
+              | CrawlError CanonicalUrl ByteString
+              | GeneralError ByteString
+                  deriving Show
 
 data Form = Form CanonicalUrl Action [FormParameters] deriving Show
 newtype Label = Label ByteString deriving (Show, Eq, Ord)

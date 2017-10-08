@@ -11,28 +11,26 @@ import qualified STMContainers.Map as M
 import qualified Control.Concurrent.STM.TVar as TV
 
 newIO :: IO PoliteQueue
-newIO = do
-    sz <- TV.newTVarIO 0
-    tm <- M.newIO
-    dm <- M.newIO
-    sl <- Q.newTQueueIO
-    return $ PoliteQueue sz tm dm sl
+newIO = PoliteQueue <$> TV.newTVarIO 0
+                    <*> M.newIO
+                    <*> M.newIO
+                    <*> Q.newTQueueIO
 
 size :: PoliteQueue -> STM Int
 size = TV.readTVar . getSize
-    
-writeQueue :: CanonicalUrl -> PoliteQueue -> STM Success
+
+writeQueue :: CanonicalUrl -> PoliteQueue -> STM (Either ByteString ())
 writeQueue url politeQueue = do
     TV.modifyTVar' (getSize politeQueue) (+1)
     case getDomain url of
-        Nothing -> return . Failure . C8.pack $ "Could not get domain from url: " ++ show url
+        Nothing -> return . Left . C8.pack $ "Could not get domain from url: " ++ show url
         Just domain -> do
             mQueue <- M.lookup domain (getDomainMapping politeQueue)
             case mQueue of
                 Just queue -> Q.writeTQueue queue url
                 Nothing -> Q.writeTQueue (getSlowLane politeQueue) url
-            return Success
-                   
+            return (Right ())
+
 readQueue :: ThreadId -> PoliteQueue -> STM CanonicalUrl
 readQueue threadId politeQueue = do
     mMyDomain <- M.lookup threadId (getThreadMapping politeQueue)
@@ -64,6 +62,4 @@ readQueue threadId politeQueue = do
                             TV.modifyTVar' (getSize politeQueue) (\x -> x - 1)
                             return nextUrl
             in loop
-               
 
-                   

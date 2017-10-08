@@ -73,11 +73,11 @@ parseRelative relative =
 
 derelativise :: CanonicalUrl -> ByteString -> Either Loggable CanonicalUrl
 derelativise onUrl bsUrl
-    | "mailto:" `C8.isPrefixOf` bsUrl = Left $ LoggableWarning onUrl $ C8.append "Found an email " bsUrl
+    | "mailto:" `C8.isPrefixOf` bsUrl = Left $ CrawlWarning onUrl $ C8.append "Found an email " bsUrl
     | isURI url = case canonicaliseByteString bsUrl of
                       Nothing -> 
                           let errMessage = C8.append "Could not parse URL: " bsUrl
-                          in Left (LoggableError onUrl errMessage)
+                          in Left (CrawlError onUrl errMessage)
                       Just canonicalised -> Right canonicalised
     | otherwise = joinParts (parseAbsoluteURI (show onUrl)) (parseRelative url)
 
@@ -85,8 +85,8 @@ derelativise onUrl bsUrl
     url = unpack bsUrl
 
     joinParts :: Maybe URI -> Maybe URI -> Either Loggable CanonicalUrl
-    joinParts  Nothing         _ = Left $ LoggableError onUrl (C8.concat ["Couldn't derelativise left side: ", (C8.pack . show) onUrl])
-    joinParts        _   Nothing = Left $ LoggableError onUrl (C8.concat ["Couldn't derelativise right side: ", bsUrl])
+    joinParts  Nothing         _ = Left $ CrawlError onUrl (C8.concat ["Couldn't derelativise left side: ", (C8.pack . show) onUrl])
+    joinParts        _   Nothing = Left $ CrawlError onUrl (C8.concat ["Couldn't derelativise right side: ", bsUrl])
     joinParts (Just ou) (Just u) = Right $ ou `urlPlus` u
 
 getDomain :: CanonicalUrl -> Maybe Domain

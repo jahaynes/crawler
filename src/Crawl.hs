@@ -122,7 +122,7 @@ crawlUrls workers crawlerState threadId =
                 let moreCookies = responseCookies ++ cookiesSent
                 eDirectionResponse <- runWebIO $ fetch (getManager crawlerState) (getCrawlerSettings crawlerState) moreCookies (GetRequest direction)
                 case eDirectionResponse of
-                    Left e -> atomically . writeQueue (getLogQueue crawlerState) $ LoggableWarning nextUrl (C8.concat ["Failed to process meta refresh: ", C8.pack (show e)])
+                    Left e -> atomically . writeQueue (getLogQueue crawlerState) $ CrawlWarning nextUrl (C8.concat ["Failed to process meta refresh: ", C8.pack (show e)])
                     Right directionResponse -> processResult directionResponse nextUrl moreCookies
             Nothing -> do
                 --Give meta refresh a chance to fire
@@ -138,7 +138,7 @@ crawlUrls workers crawlerState threadId =
                             let moreCookies = responseCookies ++ cookiesSent
                             eMetaRefreshResponse <- runWebIO $ fetch (getManager crawlerState) (getCrawlerSettings crawlerState) moreCookies (GetRequest metaRefreshUrl)
                             case eMetaRefreshResponse of
-                                Left e -> atomically . writeQueue (getLogQueue crawlerState) $ LoggableWarning nextUrl (C8.concat ["Failed to process meta refresh: ", C8.pack (show e)])
+                                Left e -> atomically . writeQueue (getLogQueue crawlerState) $ CrawlWarning nextUrl (C8.concat ["Failed to process meta refresh: ", C8.pack (show e)])
                                 Right metaRefreshResponse -> processResult metaRefreshResponse nextUrl moreCookies
 
                     Nothing -> do
@@ -149,7 +149,7 @@ crawlUrls workers crawlerState threadId =
                                 let moreCookies = responseCookies ++ cookiesSent
                                 eFormResponse <- runWebIO $ fetch (getManager crawlerState) (getCrawlerSettings crawlerState) moreCookies formRequest
                                 case eFormResponse of 
-                                    Left e -> atomically . writeQueue (getLogQueue crawlerState) $ LoggableWarning nextUrl (C8.concat ["Failed to process form: ", C8.pack (show e)])
+                                    Left e -> atomically . writeQueue (getLogQueue crawlerState) $ CrawlWarning nextUrl (C8.concat ["Failed to process form: ", C8.pack (show e)])
                                     Right formResponse -> processResult formResponse nextUrl moreCookies
                             Nothing -> storeResponse nextHrefs hrefErrors
 
@@ -172,7 +172,7 @@ crawlUrls workers crawlerState threadId =
         let errMsg = "Couldn't get data for " ++ show attemptedUrl
         S.delete attemptedUrl (getUrlsInProgress crawlerState)
         M.insert errMsg attemptedUrl (getUrlsFailed crawlerState)
-        writeQueue (getLogQueue crawlerState) (LoggableError attemptedUrl (C8.pack errMsg))
+        writeQueue (getLogQueue crawlerState) (CrawlError attemptedUrl (C8.pack errMsg))
 
     successfulDownload :: CanonicalUrl -> [CanonicalUrl] -> ByteString -> STM ()
     successfulDownload attemptedUrl redirects bodyData = do
@@ -186,19 +186,19 @@ crawlUrls workers crawlerState threadId =
         writeQueue (getStoreQueue crawlerState) crawledDocument
 
     resetThreadClock nextUrl = getCurrentTime >>= \c -> atomically . M.insert (c, nextUrl) threadId . getThreadClocks $ workers
-        
-processNextUrl :: Crawler -> CanonicalUrl -> IO Success
+
+processNextUrl :: Crawler -> CanonicalUrl -> IO (Either ByteString ())
 processNextUrl crawler url = do
     isAcceptable <- atomically $ checkAgainstIncludePatterns crawler url
     if isAcceptable
         then atomically $ insertIfNotDone crawler url
-        else return $ Failure "URL wasn't acceptable"
+        else return . Left $ "URL wasn't acceptable"
 
-insertIfNotDone :: Crawler -> CanonicalUrl -> STM Success
+insertIfNotDone :: Crawler -> CanonicalUrl -> STM (Either ByteString ())
 insertIfNotDone crawler url = do
     eNotDone <- checkNotDone crawler url
     case eNotDone of
-        Left l -> return $ Failure l
+        Left l -> return $ Left l
         Right () -> do
             S.insert url (getUrlsInProgress crawler)
             PQ.writeQueue url (getUrlQueue crawler)
