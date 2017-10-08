@@ -104,8 +104,8 @@ initialiseSettings crawler args = do
             mapM_ (\cu@(CanonicalUrl u)-> do
                 result <- processNextUrl crawler cu
                 case result of
-                    Success -> C8.hPutStrLn stderr $ C8.concat ["Added Url: ", u]
-                    Failure reason -> atomically $ writeQueue (getLogQueue crawler) (LoggableError cu (C8.concat ["Could not add Url: ", u, "\n", "Reason: ", reason])))
+                    Right () -> C8.hPutStrLn stderr $ C8.concat ["Added Url: ", u]
+                    Left reason -> atomically $ writeQueue (getLogQueue crawler) (GeneralError (C8.concat ["Could not add Url: ", u, "\n", "Reason: ", reason])))
 
     initialiseProxy :: CrawlerSettings -> OptionMap -> IO ()
     initialiseProxy crawlerSettings (OptionMap optionMap) =
