@@ -1,5 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
-
 module Output where
 
 import CountedQueue                     (sourceQueue)
@@ -25,7 +23,7 @@ storePages crawler = do
 
 getSink :: Maybe Output -> Sink CrawledDocument (ResourceT IO) ()
 getSink mOutput =  L.map (\x -> fromCrawledDocument x :: WarcEntry) 
-                =$ L.map (\x -> toByteString x)
+                =$ L.map toByteString
                 =$ case mOutput of
                        Nothing -> sinkHandle stdout
                        (Just (WarcFile warcFile)) -> sinkFile warcFile

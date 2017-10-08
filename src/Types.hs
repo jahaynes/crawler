@@ -64,7 +64,7 @@ data Workers = Workers {
     getThreadClocks :: Map ThreadId (UTCTime, CanonicalUrl)
 }
 
-data Output = WarcFile FilePath
+newtype Output = WarcFile FilePath
 
 newtype CanonicalUrl = CanonicalUrl ByteString deriving Ord
 

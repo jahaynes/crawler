@@ -12,20 +12,19 @@ module Service where
 
 import Communication
 import qualified CountedQueue as CQ
-import Crawl
-import Errors
+import Crawl                                      (processNextUrl)
 import qualified PoliteQueue as PQ
 import Shared
 import Types
-import Urls
+import Urls                                       (canonicaliseString)                 
 
-import Control.Concurrent.STM
-import Control.Monad.IO.Class
-import qualified Data.ByteString.Char8 as C8
+import           Control.Concurrent.STM           (atomically, readTVar)
+import           Control.Monad.IO.Class           (liftIO)
+import qualified Data.ByteString.Char8      as C8
 import qualified Data.ByteString.Lazy.Char8 as L8
-import GHC.Conc               (threadStatus)
-import Network.Wai.Handler.Warp (run)
-import Servant
+import           GHC.Conc                         (threadStatus)
+import           Network.Wai.Handler.Warp         (run)
+import           Servant
 import qualified STMContainers.Set          as S
 
 type CrawlerApi = "status"                                      :> Get '[JSON] CrawlerStatus
@@ -37,15 +36,15 @@ type CrawlerApi = "status"                                      :> Get '[JSON] C
 crawlerApi :: Proxy CrawlerApi
 crawlerApi = Proxy
 
-crawlerApp :: Crawler -> Workers -> LogFunction -> Application
-crawlerApp crawler workers logFunc = serve crawlerApi (crawlerServer crawler workers logFunc)
+crawlerApp :: Crawler -> Workers -> Application
+crawlerApp crawler workers = serve crawlerApi (crawlerServer crawler workers)
 
-crawlerServer :: Crawler -> Workers -> LogFunction -> Server CrawlerApi
-crawlerServer crawler workers logFunc = status
-                                   :<|> workerStatus
-                                   :<|> queueSize
-                                   :<|> addUrl
-                                   :<|> addIncludePattern
+crawlerServer :: Crawler -> Workers -> Server CrawlerApi
+crawlerServer crawler workers = status
+                           :<|> workerStatus
+                           :<|> queueSize
+                           :<|> addUrl
+                           :<|> addIncludePattern
 
     where
     status :: Handler CrawlerStatus
@@ -82,5 +81,5 @@ crawlerServer crawler workers logFunc = status
     addIncludePattern pattern = liftIO . atomically $
         S.insert (C8.pack pattern) (getUrlPatterns crawler)
 
-start :: Crawler -> Workers -> LogFunction -> IO ()
-start crawler workers logFunction = run 8081 (crawlerApp crawler workers logFunction)
+start :: Crawler -> Workers -> IO ()
+start crawler workers = run 8081 (crawlerApp crawler workers)

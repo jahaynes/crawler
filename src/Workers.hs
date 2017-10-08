@@ -8,7 +8,7 @@ import Types
 
 import Control.Concurrent                   (ThreadId, forkIO)
 import Control.Concurrent.STM               (STM, atomically)
-import qualified Service as Service
+import qualified Service
 import qualified STMContainers.Set  as S
 import qualified STMContainers.Map  as M
 
@@ -34,7 +34,7 @@ initialiseWorkers crawler logFunc = do
 
     forkWorker workers "Logging" $ logErrors crawler logFunc
 
-    Service.start crawler workers logFunc
+    Service.start crawler workers
 
 forkWorker :: Workers -> String -> IO () -> IO ()
 forkWorker workers threadName a = do
