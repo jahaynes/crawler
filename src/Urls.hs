@@ -5,11 +5,12 @@ module Urls where
 import Settings
 import Types
 
-import Data.ByteString.Char8  as C8 (ByteString, append, concat, pack, unpack, isInfixOf, isPrefixOf, null)
-import Data.ByteString.Search       (breakOn, breakAfter)
-import Data.List.Split              (splitWhen)
+import           Data.ByteString             (ByteString)
+import qualified Data.ByteString.Char8 as C8 
+import Data.ByteString.Search                (breakOn, breakAfter)
+import Data.List.Split                       (splitWhen)
 import Network.URI
-import Network.HTTP.Client          (Request, getUri)
+import Network.HTTP.Client                   (Request, getUri)
 
 canonicaliseRequest :: Request -> WebIO CanonicalUrl
 canonicaliseRequest req =
@@ -30,29 +31,29 @@ canonicaliseNetworkUri = canonicaliseString . show . stripPort
         stripPort' _ auth = auth
 
 canonicaliseByteString :: ByteString -> Maybe CanonicalUrl
-canonicaliseByteString = canonicaliseString . unpack
+canonicaliseByteString = canonicaliseString . C8.unpack
 
 canonicaliseString :: String -> Maybe CanonicalUrl
 canonicaliseString str =
     case parseAbsoluteURI (discard str) of
-        Just x -> Just (CanonicalUrl (pack . normalize . show $ (x :: URI)))
+        Just x -> Just (CanonicalUrl (C8.pack . normalize . show $ (x :: URI)))
         Nothing -> Nothing  --TODO - this looks double-handled
 
 normalize :: String -> String
 normalize = normalizeCase . normalizeEscape . normalizePathSegments
 
 urlPlus :: URI -> URI -> CanonicalUrl
-urlPlus a b = CanonicalUrl (pack . discard . normalize . show . relativeTo b $ a)
+urlPlus a b = CanonicalUrl (C8.pack . discard . normalize . show . relativeTo b $ a)
 
 discard :: String -> String
 discard str | discardFragments = takeWhile (/= '#') str
             | otherwise = str
 
 contains :: CanonicalUrl -> ByteString -> Bool
-contains (CanonicalUrl u) bs = bs `isInfixOf` u
+contains (CanonicalUrl u) bs = bs `C8.isInfixOf` u
 
 startsWith :: CanonicalUrl -> ByteString -> Bool
-startsWith (CanonicalUrl u) bs = bs `isPrefixOf` u
+startsWith (CanonicalUrl u) bs = bs `C8.isPrefixOf` u
 
 parseRelative :: String -> Maybe URI
 parseRelative relative =
@@ -64,7 +65,7 @@ parseRelative relative =
     where
     stripQueryParams :: String -> (String, Maybe String)
     stripQueryParams url
-        | '?' `elem` url =
+        | '?' `Prelude.elem` url =
             case splitWhen (\a -> a == '?' || a == '#') url of
                 [r,q,f] -> (Prelude.concat [r,"#",f], Just ('?':q))
                 [r,q] -> (r, Nothing)
@@ -72,7 +73,7 @@ parseRelative relative =
         | otherwise = (url, Nothing)
 
 derelativise :: CanonicalUrl -> ByteString -> Either Loggable CanonicalUrl
-derelativise onUrl bsUrl
+derelativise onUrl rawBsUrl
     | "mailto:" `C8.isPrefixOf` bsUrl = Left $ CrawlWarning onUrl $ C8.append "Found an email " bsUrl
     | isURI url = case canonicaliseByteString bsUrl of
                       Nothing -> 
@@ -81,8 +82,11 @@ derelativise onUrl bsUrl
                       Just canonicalised -> Right canonicalised
     | otherwise = joinParts (parseAbsoluteURI (show onUrl)) (parseRelative url)
 
-    where 
-    url = unpack bsUrl
+    where
+    bsUrl | ' ' `C8.elem` rawBsUrl = C8.intercalate "%20" $ C8.split ' ' rawBsUrl
+          | otherwise              = rawBsUrl
+
+    url = C8.unpack bsUrl
 
     joinParts :: Maybe URI -> Maybe URI -> Either Loggable CanonicalUrl
     joinParts  Nothing         _ = Left $ CrawlError onUrl (C8.concat ["Couldn't derelativise left side: ", (C8.pack . show) onUrl])
