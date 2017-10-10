@@ -83,8 +83,15 @@ derelativise onUrl rawBsUrl
     | otherwise = joinParts (parseAbsoluteURI (show onUrl)) (parseRelative url)
 
     where
-    bsUrl | ' ' `C8.elem` rawBsUrl = C8.intercalate "%20" $ C8.split ' ' rawBsUrl
-          | otherwise              = rawBsUrl
+    bsUrl = sanitiseUrl rawBsUrl
+
+    sanitiseUrl = encodeSpaces . dropFragments
+
+    dropFragments unsanitised | '#' `C8.elem` unsanitised = C8.takeWhile (\c -> not (c == '#')) unsanitised
+                              | otherwise                 = unsanitised
+
+    encodeSpaces unsanitised | ' ' `C8.elem` unsanitised = C8.intercalate "%20" $ C8.split ' ' unsanitised
+                             | otherwise                 = unsanitised
 
     url = C8.unpack bsUrl
 
