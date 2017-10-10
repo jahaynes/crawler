@@ -30,7 +30,7 @@ main = do
 
     crawler <- createCrawler
 
-    initialiseSettings crawler args
+    initialiseSettings crawler args defaultLogging
 
     initialiseWorkers crawler defaultLogging
 

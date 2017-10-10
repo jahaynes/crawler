@@ -25,4 +25,4 @@ getSink mOutput =  L.map (\x -> fromCrawledDocument x :: CrawledWarcEntry)
                 =$ L.map toStorableDocument
                 =$ case mOutput of
                        Nothing -> sinkHandle stdout
-                       (Just (WarcFile warcFile)) -> sinkFile warcFile
+                       Just (WarcFile warcFile) -> sinkFile warcFile

@@ -84,6 +84,7 @@ instance Show CanonicalUrl where
 
 data Loggable = CrawlWarning CanonicalUrl ByteString
               | CrawlError CanonicalUrl ByteString
+              | GeneralMessage ByteString
               | GeneralError ByteString
                   deriving Show
 

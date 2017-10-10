@@ -28,7 +28,7 @@ initialiseWorkers crawler logFunc = do
                             getActiveThreads = activeThreads,
                             getThreadClocks = threadClocks}
 
-    setNumCrawlers crawler workers numStartCrawlers
+    setNumCrawlers crawler workers logFunc numStartCrawlers
 
     forkWorker workers "Storage" $ storePages crawler
 
