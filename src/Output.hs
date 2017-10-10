@@ -9,8 +9,7 @@ import Data.Conduit.Binary              (sinkFile, sinkHandle)
 import Data.Conduit.List as L           (map)
 import System.IO                        (stdout)
 
-import WarcDocument                     ()
-import Data.Warc.WarcEntry
+import WarcDocument
 
 storePages :: Crawler -> IO ()
 storePages crawler = do
@@ -22,8 +21,8 @@ storePages crawler = do
         $$ getSink mOutput
 
 getSink :: Maybe Output -> Sink CrawledDocument (ResourceT IO) ()
-getSink mOutput =  L.map (\x -> fromCrawledDocument x :: WarcEntry) 
-                =$ L.map toByteString
+getSink mOutput =  L.map (\x -> fromCrawledDocument x :: CrawledWarcEntry) 
+                =$ L.map toStorableDocument
                 =$ case mOutput of
                        Nothing -> sinkHandle stdout
                        (Just (WarcFile warcFile)) -> sinkFile warcFile

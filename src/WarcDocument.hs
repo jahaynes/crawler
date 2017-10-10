@@ -13,11 +13,13 @@ import Data.Warc.Header.HeaderLine
 import Data.Warc.Header.Key
 import Data.Warc.Header.Value
 
-instance FromCrawledDocument WarcEntry where
+newtype CrawledWarcEntry = CrawledWarcEntry WarcEntry
+
+instance FromCrawledDocument CrawledWarcEntry where
 
     fromCrawledDocument (CrawledDocument redirectChain content threadId) = 
 
-        let version = WarcVersion "1.0"
+        let ver = WarcVersion "1.0"
             len = IntValue (C8.length content)
             compressionMode = HeaderLine (CustomKey CompressionMode) (CompressionModeValue Uncompressed)
             contentLength = HeaderLine (MandatoryKey ContentLength) len
@@ -28,7 +30,7 @@ instance FromCrawledDocument WarcEntry where
             warcTargetURI = HeaderLine (OptionalKey WarcTargetURI) (StringValue url)
             warcType = HeaderLine (CustomKey (UnknownKey "WARC-Type")) (StringValue "response")
 
-            header = WarcHeader version [
+            header = WarcHeader ver [
                         compressionMode,
                         contentLength,
                         originalContentLength,
@@ -39,6 +41,6 @@ instance FromCrawledDocument WarcEntry where
 
             body = UncompressedBody content
         in
-            WarcEntry header body
+            CrawledWarcEntry $ WarcEntry header body
 
-    toStorableDocument = WE.toByteString
+    toStorableDocument (CrawledWarcEntry we) = WE.toByteString we
