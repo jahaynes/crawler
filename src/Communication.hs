@@ -24,7 +24,6 @@ instance FromHttpApiData QueueName where
             Right queueName -> Right queueName
 
 data CrawlerStatus = RunningStatus
-                   | IdleStatus
                    | HaltingStatus
                    | Halted
                        deriving (Generic, Eq, Show, ToJSON)

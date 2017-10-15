@@ -15,7 +15,7 @@ import Shared
 import Types
 
 import Control.Concurrent               (ThreadId, myThreadId)
-import Control.Concurrent.STM           (STM, atomically, readTVar, modifyTVar', newTVarIO)
+import Control.Concurrent.STM           (STM, atomically, writeTVar, readTVar, modifyTVar', newTVarIO)
 import Control.Monad                    (replicateM_, when, void)
 import Data.ByteString.Char8      as C8 (ByteString, concat, pack, isInfixOf)
 import Data.List                        ((\\))
@@ -33,6 +33,7 @@ createCrawler = do
     crawlerStatus <- newTVarIO RunningStatus
     urlQueue <- PQ.newIO
     storeQueue <- newQueueIO (Bounded 32)
+    numStored <- newTVarIO 0
     loggingQueue <- newQueueIO (Bounded 128)
     manager <- newManager (if ignoreBadHttpsCerts
                                then mkManagerSettings (TLSSettingsSimple True False False) Nothing
@@ -43,7 +44,7 @@ createCrawler = do
     urlsCompleted <- S.newIO
     urlsFailed <- M.newIO
     crawlerSettings <- createCrawlerSettings
-    return $ Crawler crawlerStatus urlQueue storeQueue loggingQueue manager cookieList urlPatterns urlsInProgress urlsCompleted urlsFailed crawlerSettings
+    return $ Crawler crawlerStatus urlQueue storeQueue numStored loggingQueue manager cookieList urlPatterns urlsInProgress urlsCompleted urlsFailed crawlerSettings
 
 createCrawlerSettings :: IO CrawlerSettings
 createCrawlerSettings = do
@@ -51,7 +52,8 @@ createCrawlerSettings = do
     formInstructions <- newTVarIO emptyFormActions
     hrefDirections <- newTVarIO emptyHrefDirections
     proxySettings <- newTVarIO Nothing
-    return $ CrawlerSettings crawlOutput formInstructions hrefDirections proxySettings
+    crawlLimit <- newTVarIO Nothing
+    return $ CrawlerSettings crawlOutput formInstructions hrefDirections proxySettings crawlLimit
 
 setNumCrawlers :: Crawler -> Workers -> LogFunction -> Int -> IO ()
 setNumCrawlers crawlerState workers logFunc desiredNum = do
@@ -174,6 +176,8 @@ crawlUrls workers crawlerState threadId logFunc =
 
     successfulDownload :: CanonicalUrl -> [CanonicalUrl] -> ByteString -> STM ()
     successfulDownload attemptedUrl redirects bodyData = do
+        numStored <- readTVar (getNumStored crawlerState)
+        mCrawlLimit <- readTVar . getCrawlLimit . getCrawlerSettings $ crawlerState
         S.delete attemptedUrl (getUrlsInProgress crawlerState)
         mapM_ (\u -> S.insert u (getUrlsCompleted crawlerState)) redirects
         let crawledDocument = CrawledDocument
@@ -181,7 +185,10 @@ crawlUrls workers crawlerState threadId logFunc =
                             , getContent = bodyData
                             , getThreadId = threadId
                             }
-        writeQueue (getStoreQueue crawlerState) crawledDocument
+
+        when (maybe True (\cl -> numStored < cl) mCrawlLimit) $ do
+            writeQueue (getStoreQueue crawlerState) crawledDocument
+            writeTVar (getNumStored crawlerState) (numStored+1)
 
     resetThreadClock nextUrl = getCurrentTime >>= \c -> atomically . M.insert (c, nextUrl) threadId . getThreadClocks $ workers
 

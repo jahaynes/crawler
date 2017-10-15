@@ -49,6 +49,8 @@ initialiseSettings crawler args logFunc = do
 
     initialiseProxy (getCrawlerSettings crawler) optionMap
 
+    initialiseCrawlLimit (getCrawlerSettings crawler) optionMap
+
     initialiseIncludes optionMap
 
     initialiseStartUrls optionMap
@@ -61,6 +63,10 @@ initialiseSettings crawler args logFunc = do
             Just [warcFile] -> do
                 atomically $ writeTVar (getCrawlOutput crawlerSettings) (Just (WarcFile warcFile))
                 logFunc . GeneralMessage . C8.pack . concat $ ["Writing output to: ", warcFile, "\n"]
+
+    initialiseCrawlLimit crawlerSettings (OptionMap optionMap) =
+        atomically . writeTVar (getCrawlLimit crawlerSettings) $
+            M.lookup (OptionFlag "-l") optionMap >>= headMay >>= readMay
 
     initialiseIncludes :: OptionMap -> IO ()
     initialiseIncludes (OptionMap optionMap) = do

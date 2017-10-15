@@ -2,10 +2,11 @@
 
 module Main where
 
-import Communication
+import CountedQueue as CC
 import Crawl
 import Errors
 import Initialisation
+import PoliteQueue as PQ
 import Types
 import Workers
 
@@ -28,20 +29,37 @@ main = do
 
     _ <- forkServer "localhost" 8000
 
+    defaultLogging $ GeneralMessage "Preparing crawler"
     crawler <- createCrawler
 
+    defaultLogging $ GeneralMessage "Initialising logging"
     initialiseSettings crawler args defaultLogging
 
+    defaultLogging $ GeneralMessage "Initialising workers"
     initialiseWorkers crawler defaultLogging
 
-    run (getCrawlerStatus crawler)
+    defaultLogging $ GeneralMessage "Running crawler"
+    run crawler
 
     where
-    run crawlerStatus = do
-        halted <- (== Halted) <$> (atomically . readTVar $ crawlerStatus)
-        unless halted $ do
-            threadDelay oneSecond
-            run crawlerStatus
+    run crawler = do
+        threadDelay oneSecond
+        stop <- shouldStop
+        unless stop $ run crawler
 
         where
         oneSecond = 1000000
+
+        shouldStop = atomically $ do
+
+          noWork <- (\a b c -> a && b && c) <$> ((==0) <$> (PQ.size . getUrlQueue $ crawler))
+                                            <*> (isEmpty . getStoreQueue $ crawler)
+                                            <*> (isEmpty . getLogQueue $ crawler)
+
+          numStored <- readTVar . getNumStored $ crawler
+          mCrawlLimit <- readTVar . getCrawlLimit . getCrawlerSettings $ crawler
+          let quotaDone = case mCrawlLimit of
+                              Nothing -> False
+                              Just cl -> numStored >= cl
+
+          return (noWork || quotaDone) 
