@@ -34,7 +34,7 @@ initialiseWorkers crawler logFunc = do
 
     forkWorker workers "Logging" $ logErrors crawler logFunc
 
-    Service.start crawler workers
+    forkWorker workers "Service" $ Service.start crawler workers
 
 forkWorker :: Workers -> String -> IO () -> IO ()
 forkWorker workers threadName a = do

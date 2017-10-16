@@ -32,6 +32,7 @@ data Crawler = Crawler {
     getCrawlerStatus :: TVar CrawlerStatus,
     getUrlQueue :: PoliteQueue,  
     getStoreQueue :: CountedQueue CrawledDocument,
+    getNumStored :: TVar Int,
     getLogQueue :: CountedQueue Loggable,
     getManager :: Manager,
     getCookieList :: TVar [Cookie],
@@ -46,7 +47,8 @@ data CrawlerSettings = CrawlerSettings {
     getCrawlOutput :: TVar (Maybe Output),
     getFormInstructions :: TVar SuppliedFormActions,
     getHrefDirections :: TVar [HrefDirection],
-    getProxySettings :: TVar (Maybe ProxySettings)
+    getProxySettings :: TVar (Maybe ProxySettings),
+    getCrawlLimit :: TVar (Maybe Int)
 }
 
 data PoliteQueue = PoliteQueue {
