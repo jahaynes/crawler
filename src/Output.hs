@@ -1,9 +1,12 @@
 module Output where
 
-import CountedQueue                     (sourceQueue)
-import Control.Concurrent.STM           (atomically, readTVar)
+import Communication
+import CountedQueue                     (readQueue)
+import Control.Concurrent.STM           (atomically, readTVar, writeTVar)
+import Data.ByteString                  (ByteString)
 import Types
-import Control.Monad.Trans.Resource     (runResourceT, ResourceT)
+import Control.Monad.IO.Class           (liftIO)
+import Control.Monad.Trans.Resource     (runResourceT, MonadResource)
 import Data.Conduit
 import Data.Conduit.Binary              (sinkFile, sinkHandle)
 import Data.Conduit.List as L           (map)
@@ -16,13 +19,28 @@ storePages crawler = do
 
     mOutput <- atomically . readTVar . getCrawlOutput . getCrawlerSettings $ crawler
 
-    runResourceT
-        $  sourceQueue (getStoreQueue crawler)
-        $$ getSink mOutput
-
-getSink :: Maybe Output -> Sink CrawledDocument (ResourceT IO) ()
-getSink mOutput =  L.map (\x -> fromCrawledDocument x :: CrawledWarcEntry) 
+    runResourceT $ fetchUpstream crawler
+                =$ L.map (\x -> fromCrawledDocument x :: CrawledWarcEntry)
                 =$ L.map toStorableDocument
-                =$ case mOutput of
-                       Nothing -> sinkHandle stdout
-                       Just (WarcFile warcFile) -> sinkFile warcFile
+                $$ getSink mOutput
+
+    atomically $ writeTVar (getCrawlerStatus crawler) Halted
+    
+fetchUpstream :: MonadResource r => Crawler -> Source r CrawledDocument
+fetchUpstream crawler = do
+
+  ma <- liftIO . atomically $ do
+    status <- readTVar . getCrawlerStatus $ crawler
+    if (status == RunningStatus)
+        then Just <$> (readQueue . getStoreQueue $ crawler)
+        else return Nothing
+
+  case ma of
+      Nothing -> return ()
+      Just x -> do
+        yield x
+        fetchUpstream crawler
+
+getSink :: MonadResource r => Maybe Output -> Sink ByteString r ()
+getSink              Nothing = sinkHandle stdout
+getSink (Just (WarcFile wf)) = sinkFile wf

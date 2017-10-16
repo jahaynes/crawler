@@ -2,6 +2,7 @@
 
 module Main where
 
+import Communication
 import CountedQueue as CC
 import Crawl
 import Errors
@@ -11,8 +12,8 @@ import Types
 import Workers
 
 import Control.Concurrent               (threadDelay)
-import Control.Concurrent.STM           (atomically, readTVar)
-import Control.Monad                    (unless)
+import Control.Concurrent.STM           (STM, atomically, readTVar, writeTVar)
+import Control.Monad                    (unless, when)
 
 import System.Environment               (getArgs)
 import System.IO                        (hPrint, stderr)
@@ -44,22 +45,30 @@ main = do
     where
     run crawler = do
         threadDelay oneSecond
-        stop <- shouldStop
-        unless stop $ run crawler
+        atomically checkShutdown
+
+        status <- atomically . readTVar . getCrawlerStatus $ crawler
+
+        unless (status == Halted) $ run crawler
 
         where
         oneSecond = 1000000
 
-        shouldStop = atomically $ do
+        checkShutdown :: STM ()
+        checkShutdown = do
 
-          noWork <- (\a b c -> a && b && c) <$> ((==0) <$> (PQ.size . getUrlQueue $ crawler))
-                                            <*> (isEmpty . getStoreQueue $ crawler)
-                                            <*> (isEmpty . getLogQueue $ crawler)
+          status <- readTVar . getCrawlerStatus $ crawler
 
-          numStored <- readTVar . getNumStored $ crawler
-          mCrawlLimit <- readTVar . getCrawlLimit . getCrawlerSettings $ crawler
-          let quotaDone = case mCrawlLimit of
-                              Nothing -> False
-                              Just cl -> numStored >= cl
+          when (status == RunningStatus) $ do
+            noWork <- (\a b c -> a && b && c) <$> ((==0) <$> (PQ.size . getUrlQueue $ crawler))
+                                              <*> (isEmpty . getStoreQueue $ crawler)
+                                              <*> (isEmpty . getLogQueue $ crawler)
 
-          return (noWork || quotaDone) 
+            numStored <- readTVar . getNumStored $ crawler
+            mCrawlLimit <- readTVar . getCrawlLimit . getCrawlerSettings $ crawler
+            let quotaDone = case mCrawlLimit of
+                                Nothing -> False
+                                Just cl -> numStored >= cl
+
+            when (noWork || quotaDone) $ do
+              writeTVar (getCrawlerStatus crawler) HaltingStatus
