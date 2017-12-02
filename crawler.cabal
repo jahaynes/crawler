@@ -18,7 +18,6 @@ executable crawler
                        conduit-extra,
                        connection,
                        containers,
-                       either,
                        ekg,
                        fast-tagsoup,
                        hashable,

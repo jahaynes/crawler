@@ -4,7 +4,7 @@ import CountedQueue
 import Communication
 
 import Control.Monad.Trans.Class        (lift)
-import Control.Monad.Trans.Either       (EitherT, runEitherT, left)
+import Control.Monad.Trans.Except       (ExceptT, runExceptT, throwE)
 import Control.Monad.Trans.Resource     (ResourceT, runResourceT)
 import Data.ByteString.Char8            (ByteString, unpack)
 import Data.Conduit                     (ResumableSource)
@@ -128,13 +128,13 @@ setAsList = toList . stream
 
 {- Custom Monad Transformer Stack
    which implements Resource and Either -}
-type WebIO = ResourceT (EitherT String IO)
+type WebIO = ResourceT (ExceptT String IO)
 
-runWebIO :: ResourceT (EitherT e IO) a -> IO (Either e a)
-runWebIO = runEitherT . runResourceT
+runWebIO :: ResourceT (ExceptT e IO) a -> IO (Either e a)
+runWebIO = runExceptT . runResourceT
 
-webErr :: String -> ResourceT (EitherT String IO) a
-webErr = lift . left
+webErr :: String -> ResourceT (ExceptT String IO) a
+webErr = lift . throwE
 
 data ProxySettings = ProxySettings ByteString Int
 
