@@ -7,7 +7,7 @@ import Control.Monad.Trans.Class        (lift)
 import Control.Monad.Trans.Except       (ExceptT, runExceptT, throwE)
 import Control.Monad.Trans.Resource     (ResourceT, runResourceT)
 import Data.ByteString.Char8            (ByteString, unpack)
-import Data.Conduit                     (ResumableSource)
+import Data.Conduit
 import Data.Hashable                    (Hashable, hashWithSalt)
 
 import qualified Data.Map       as M
