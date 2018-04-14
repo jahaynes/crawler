@@ -89,24 +89,34 @@ crawlUrls workers crawlerState threadId logFunc =
 
     whileActive threadId (getCrawlerThreads workers) (getCrawlerThreadsToStop workers) $ do
 
-        nextUrl@(CanonicalUrl bs) <- atomically $ PQ.readQueue threadId (getUrlQueue crawlerState)
+        putStrLn $ "Thread " ++ show threadId ++ " running"
 
-        when stepMode $ do
-            logFunc . GeneralMessage . C8.concat $ ["(Step Mode)... ", bs, "\nEnter to continue"]
-            void getLine
+        status <- atomically . readTVar . getCrawlerStatus $ crawlerState
 
-        cookiesToSend <- atomically . readTVar . getCookieList $ crawlerState
+        when (status /= RunningStatus) $ do
 
-        resetThreadClock nextUrl
+            atomically $ S.insert threadId (getCrawlerThreadsToStop workers)
 
-        eDownloadResult <- runWebIO $ fetch (getManager crawlerState) (getCrawlerSettings crawlerState) cookiesToSend (GetRequest nextUrl)
+        when (status == RunningStatus) $ do
 
-        case eDownloadResult of
-            Left err -> do
-                let errMsg = C8.pack . Prelude.concat $ [ "Failed to download (thread ", show threadId, ")\n", err]
-                logFunc $ GeneralMessage errMsg
-                atomically $ failedDownload nextUrl
-            Right downloadResult -> processResult downloadResult nextUrl cookiesToSend
+            nextUrl@(CanonicalUrl bs) <- atomically $ PQ.readQueue threadId (getUrlQueue crawlerState)
+
+            when stepMode $ do
+                logFunc . GeneralMessage . C8.concat $ ["(Step Mode)... ", bs, "\nEnter to continue"]
+                void getLine
+
+            cookiesToSend <- atomically . readTVar . getCookieList $ crawlerState
+
+            resetThreadClock nextUrl
+
+            eDownloadResult <- runWebIO $ fetch (getManager crawlerState) (getCrawlerSettings crawlerState) cookiesToSend (GetRequest nextUrl)
+
+            case eDownloadResult of
+                Left err -> do
+                    let errMsg = C8.pack . Prelude.concat $ [ "Failed to download (thread ", show threadId, ")\n", err]
+                    logFunc $ GeneralMessage errMsg
+                    atomically $ failedDownload nextUrl
+                Right downloadResult -> processResult downloadResult nextUrl cookiesToSend
 
     where
     processResult :: DownloadResult -> CanonicalUrl -> [Cookie] -> IO ()

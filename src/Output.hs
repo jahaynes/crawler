@@ -31,7 +31,7 @@ fetchUpstream crawler = do
 
   ma <- liftIO . atomically $ do
     status <- readTVar . getCrawlerStatus $ crawler
-    if (status == RunningStatus)
+    if (status /= Halted)
         then Just <$> (readQueue . getStoreQueue $ crawler)
         else return Nothing
 
