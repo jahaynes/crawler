@@ -3,11 +3,7 @@ module Types where
 import CountedQueue
 import Communication
 
-import Control.Monad.Trans.Class        (lift)
-import Control.Monad.Trans.Except       (ExceptT, runExceptT, throwE)
-import Control.Monad.Trans.Resource     (ResourceT, runResourceT)
 import Data.ByteString.Char8            (ByteString, unpack)
-import Data.Conduit
 import Data.Hashable                    (Hashable, hashWithSalt)
 
 import qualified Data.Map       as M
@@ -17,10 +13,10 @@ import Control.Concurrent.STM           (STM, TVar)
 import Control.Concurrent.STM.TQueue    (TQueue)
 import Data.Time                        (UTCTime)
 import ListT                            (toList)
-import Network.HTTP.Conduit             (Manager, Cookie, Response)
+import Network.HTTP.Conduit             (Manager, Cookie)
 import Network.HTTP.Types               (Method)
-import STMContainers.Map                (Map)
-import STMContainers.Set                (Set, stream)
+import StmContainers.Map                (Map)
+import StmContainers.Set                (Set, listT)
 
 data CrawledDocument = CrawledDocument
                      { getRedirectChain :: [CanonicalUrl]
@@ -98,7 +94,7 @@ type FormValue = ByteString
 data DownloadRequest = GetRequest CanonicalUrl
                      | FormRequest Label Method CanonicalUrl FormParameters deriving Show
 
-type DownloadSource = Response (ResumableSource WebIO ByteString)
+-- type DownloadSource = Response (ResumableSource WebIO ByteString)
 
 data DownloadResult = DownloadResult !ByteString ![Cookie] ![CanonicalUrl]
 
@@ -124,17 +120,7 @@ getUrl (GetRequest url) = url
 getUrl (FormRequest _ _ targetUrl _) = targetUrl
 
 setAsList :: Set a -> STM [a]
-setAsList = toList . stream
-
-{- Custom Monad Transformer Stack
-   which implements Resource and Either -}
-type WebIO = ResourceT (ExceptT String IO)
-
-runWebIO :: ResourceT (ExceptT e IO) a -> IO (Either e a)
-runWebIO = runExceptT . runResourceT
-
-webErr :: String -> ResourceT (ExceptT String IO) a
-webErr = lift . throwE
+setAsList = toList . listT
 
 data ProxySettings = ProxySettings ByteString Int
 

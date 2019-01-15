@@ -9,8 +9,8 @@ import Types
 import Control.Concurrent                   (ThreadId, forkIO)
 import Control.Concurrent.STM               (STM, atomically)
 import qualified Service
-import qualified STMContainers.Set  as S
-import qualified STMContainers.Map  as M
+import qualified StmContainers.Set  as S
+import qualified StmContainers.Map  as M
 
 initialiseWorkers :: Crawler -> LogFunction -> IO ()
 initialiseWorkers crawler logFunc = do

@@ -1,7 +1,7 @@
 module Request where
 
 import Control.Concurrent.STM
-import Control.Monad.IO.Class       (liftIO)
+import Control.Monad.IO.Class       (MonadIO, liftIO)
 import Data.CaseInsensitive         (mk)
 import GHC.Exception                (SomeException)
 import Network.HTTP.Conduit
@@ -10,13 +10,13 @@ import Network.HTTP.Types           (methodPost)
 import Settings
 import Types
 
-buildRequest :: CrawlerSettings -> [Cookie] -> DownloadRequest -> WebIO Request
+buildRequest :: MonadIO m => CrawlerSettings -> [Cookie] -> DownloadRequest -> m Request
 buildRequest crawlerSettings requestCookies downloadRequest = do
 
     mProxySettings <- liftIO . readTVarIO . getProxySettings $ crawlerSettings
 
     case makeRequest mProxySettings of
-        Left l -> webErr $ show l
+        Left l -> error ("TODO handle better: " ++ show l)
         Right req -> return req
 
     where

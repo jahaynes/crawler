@@ -17,15 +17,16 @@ import Types
 import Control.Concurrent               (ThreadId, myThreadId)
 import Control.Concurrent.STM           (STM, atomically, writeTVar, readTVar, modifyTVar', newTVarIO)
 import Control.Monad                    (replicateM_, when, void)
-import Data.ByteString.Char8      as C8 (ByteString, concat, pack, isInfixOf)
+import Control.Monad.Trans.Resource     (runResourceT)
+import Data.ByteString.Char8      as C8 (ByteString, concat, isInfixOf)
 import Data.List                        ((\\))
 import Data.Maybe                       (isJust)
 import Data.Time
 import Network.HTTP.Conduit             (Cookie, newManager, tlsManagerSettings, mkManagerSettings)
 import Network.Connection               (TLSSettings (TLSSettingsSimple))
 import qualified ListT             as L
-import qualified STMContainers.Set as S
-import qualified STMContainers.Map as M
+import qualified StmContainers.Set as S
+import qualified StmContainers.Map as M
 import Text.HTML.TagSoup.Fast   (parseTags)
 
 createCrawler :: IO Crawler
@@ -68,7 +69,7 @@ setNumCrawlers crawlerState workers logFunc desiredNum = do
                     else do
                         L.traverse_ (`S.insert` getCrawlerThreadsToStop workers)
                             . L.take (-threadDelta)
-                            . S.stream
+                            . S.listT
                             . getCrawlerThreads
                             $ workers
                         return 0
@@ -109,14 +110,9 @@ crawlUrls workers crawlerState threadId logFunc =
 
             resetThreadClock nextUrl
 
-            eDownloadResult <- runWebIO $ fetch (getManager crawlerState) (getCrawlerSettings crawlerState) cookiesToSend (GetRequest nextUrl)
+            downloadResult <- runResourceT $ fetch (getManager crawlerState) (getCrawlerSettings crawlerState) cookiesToSend (GetRequest nextUrl)
 
-            case eDownloadResult of
-                Left err -> do
-                    let errMsg = C8.pack . Prelude.concat $ [ "Failed to download (thread ", show threadId, ")\n", err]
-                    logFunc $ GeneralMessage errMsg
-                    atomically $ failedDownload nextUrl
-                Right downloadResult -> processResult downloadResult nextUrl cookiesToSend
+            processResult downloadResult nextUrl cookiesToSend
 
     where
     processResult :: DownloadResult -> CanonicalUrl -> [Cookie] -> IO ()
@@ -130,10 +126,8 @@ crawlUrls workers crawlerState threadId logFunc =
         case mDirection of
             (Just direction) -> do
                 let moreCookies = responseCookies ++ cookiesSent
-                eDirectionResponse <- runWebIO $ fetch (getManager crawlerState) (getCrawlerSettings crawlerState) moreCookies (GetRequest direction)
-                case eDirectionResponse of
-                    Left e -> atomically . writeQueue (getLogQueue crawlerState) $ CrawlWarning nextUrl (C8.concat ["Failed to process meta refresh: ", C8.pack (show e)])
-                    Right directionResponse -> processResult directionResponse nextUrl moreCookies
+                directionResponse <- runResourceT $ fetch (getManager crawlerState) (getCrawlerSettings crawlerState) moreCookies (GetRequest direction)
+                processResult directionResponse nextUrl moreCookies
             Nothing -> do
                 --Give meta refresh a chance to fire
                 case findPageRedirect nextUrl parsedTags of --TODO - should this be head redirects
@@ -146,10 +140,8 @@ crawlUrls workers crawlerState threadId logFunc =
 
                         when (eNotDone == Right ()) $ do
                             let moreCookies = responseCookies ++ cookiesSent
-                            eMetaRefreshResponse <- runWebIO $ fetch (getManager crawlerState) (getCrawlerSettings crawlerState) moreCookies (GetRequest metaRefreshUrl)
-                            case eMetaRefreshResponse of
-                                Left e -> atomically . writeQueue (getLogQueue crawlerState) $ CrawlWarning nextUrl (C8.concat ["Failed to process meta refresh: ", C8.pack (show e)])
-                                Right metaRefreshResponse -> processResult metaRefreshResponse nextUrl moreCookies
+                            metaRefreshResponse <- runResourceT $ fetch (getManager crawlerState) (getCrawlerSettings crawlerState) moreCookies (GetRequest metaRefreshUrl)
+                            processResult metaRefreshResponse nextUrl moreCookies
 
                     Nothing -> do
                         let (hrefErrors, nextHrefs, forms) = parsePage redirects parsedTags
@@ -157,10 +149,8 @@ crawlUrls workers crawlerState threadId logFunc =
                         case selectFormOptions formInstructions forms of
                             Just formRequest -> do
                                 let moreCookies = responseCookies ++ cookiesSent
-                                eFormResponse <- runWebIO $ fetch (getManager crawlerState) (getCrawlerSettings crawlerState) moreCookies formRequest
-                                case eFormResponse of 
-                                    Left e -> atomically . writeQueue (getLogQueue crawlerState) $ CrawlWarning nextUrl (C8.concat ["Failed to process form: ", C8.pack (show e)])
-                                    Right formResponse -> processResult formResponse nextUrl moreCookies
+                                formResponse <- runResourceT $ fetch (getManager crawlerState) (getCrawlerSettings crawlerState) moreCookies formRequest
+                                processResult formResponse nextUrl moreCookies
                             Nothing -> storeResponse nextHrefs hrefErrors
 
         where
@@ -176,13 +166,6 @@ crawlUrls workers crawlerState threadId logFunc =
     shareCookies responseCookiesToshare =
         let cookiesToAdd = filter shareCookie responseCookiesToshare
         in modifyTVar' (getCookieList crawlerState) (\x -> cookiesToAdd ++ x)
-
-    failedDownload :: CanonicalUrl -> STM ()
-    failedDownload attemptedUrl = do
-        let errMsg = "Couldn't get data for " ++ show attemptedUrl
-        S.delete attemptedUrl (getUrlsInProgress crawlerState)
-        M.insert errMsg attemptedUrl (getUrlsFailed crawlerState)
-        writeQueue (getLogQueue crawlerState) (CrawlError attemptedUrl (C8.pack errMsg))
 
     successfulDownload :: CanonicalUrl -> [CanonicalUrl] -> ByteString -> STM ()
     successfulDownload attemptedUrl redirects bodyData = do

@@ -6,12 +6,12 @@ import qualified Data.ByteString.Char8 as C8
 
 import Types
 import Data.Warc.WarcEntry as WE
-import Data.Warc.Body.Body
+import Data.Warc.Body
 import Data.Warc.Shared
-import Data.Warc.Header.Header
-import Data.Warc.Header.HeaderLine
-import Data.Warc.Header.Key
-import Data.Warc.Header.Value
+import Data.Warc.Header
+import Data.Warc.HeaderLine
+import Data.Warc.Key
+import Data.Warc.Value
 
 newtype CrawledWarcEntry = CrawledWarcEntry WarcEntry
 

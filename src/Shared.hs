@@ -6,14 +6,14 @@ import Control.Monad                    (when, unless)
 import Data.Char                        (isSpace)
 import qualified Data.ByteString.Char8  as C8
 import qualified ListT             as L
-import qualified STMContainers.Set as S
-import qualified STMContainers.Map as M
+import qualified StmContainers.Set as S
+import qualified StmContainers.Map as M
 
 mapAsList :: M.Map a b -> STM [(a,b)]
-mapAsList = L.toList . M.stream
+mapAsList = L.toList . M.listT
 
 sizeOfSet :: S.Set a -> STM Int
-sizeOfSet = L.fold (\a _ -> return (a + 1)) 0 . S.stream
+sizeOfSet = L.fold (\a _ -> return (a + 1)) 0 . S.listT
 
 both :: (a -> b) -> (a,a) -> (b,b)
 both f (k,v) = (f k, f v)

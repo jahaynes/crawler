@@ -2,7 +2,7 @@
 
 module Settings where
 
-import           Network.HTTP.Conduit      (Cookie, Request, applyBasicAuth)
+import           Network.HTTP.Conduit      (Cookie, Request {-, applyBasicAuth-} )
 import           Network.HTTP.Types.Header (RequestHeaders, hUserAgent)
 
 numStartCrawlers :: Int

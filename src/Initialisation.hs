@@ -19,7 +19,7 @@ import qualified Data.Map               as M
 import           Data.Maybe             (mapMaybe)
 import           Network.URI            (unEscapeString)
 import           Safe
-import qualified STMContainers.Set      as S
+import qualified StmContainers.Set      as S
 import           Text.Read              (readMaybe)
 
 newtype OptionFlag = OptionFlag String deriving (Show, Eq, Ord)

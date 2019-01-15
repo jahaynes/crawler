@@ -7,7 +7,7 @@ import Data.Maybe                   (fromJust)
 import Control.Concurrent           (ThreadId)
 import qualified Control.Concurrent.STM.TQueue as Q
 import Control.Monad.STM    (STM)
-import qualified STMContainers.Map as M
+import qualified StmContainers.Map as M
 import qualified Control.Concurrent.STM.TVar as TV
 
 newIO :: IO PoliteQueue

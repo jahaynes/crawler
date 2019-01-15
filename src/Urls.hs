@@ -12,10 +12,10 @@ import Data.List.Split                       (splitWhen)
 import Network.URI
 import Network.HTTP.Client                   (Request, getUri)
 
-canonicaliseRequest :: Request -> WebIO CanonicalUrl
+canonicaliseRequest :: Monad m => Request -> m CanonicalUrl
 canonicaliseRequest req =
     case canonicaliseNetworkUri . getUri $ req of
-        Nothing -> webErr "Couldn't canonicalise URL from Request"
+        Nothing -> error "TODO handle better - Couldn't canonicalise URL from Request"
         Just url -> return url
 
 canonicaliseNetworkUri :: URI -> Maybe CanonicalUrl
@@ -59,8 +59,8 @@ parseRelative :: String -> Maybe URI
 parseRelative relative =
     case stripQueryParams relative of
          (rel, Nothing) -> parseRelativeReference rel
-         (rel, Just query) -> case parseRelativeReference rel of
-                                  Just x -> Just (x {uriQuery = query})
+         (rel, Just query_) -> case parseRelativeReference rel of
+                                  Just x -> Just (x {uriQuery = query_})
                                   Nothing -> Nothing
     where
     stripQueryParams :: String -> (String, Maybe String)
@@ -68,7 +68,7 @@ parseRelative relative =
         | '?' `Prelude.elem` url =
             case splitWhen (\a -> a == '?' || a == '#') url of
                 [r,q,f] -> (Prelude.concat [r,"#",f], Just ('?':q))
-                [r,q] -> (r, Nothing)
+                [r,_] -> (r, Nothing)
                 _ -> (url, Nothing)
         | otherwise = (url, Nothing)
 
