@@ -2,7 +2,7 @@ module Output where
 
 import Communication
 import CountedQueue                     (CountedQueue, readQueue)
-import Control.Concurrent.STM           (atomically, readTVar, writeTVar)
+import Control.Concurrent.STM           (atomically, readTVar, readTVarIO, writeTVar)
 import Data.ByteString                  (ByteString)
 import Types
 import Control.Monad.IO.Class           (liftIO)
@@ -17,7 +17,7 @@ import WarcDocument
 storePages :: CountedQueue bq => Crawler bq -> IO ()
 storePages crawler = do
 
-    mOutput <- atomically . readTVar . getCrawlOutput . getCrawlerSettings $ crawler
+    mOutput <- readTVarIO . getCrawlOutput . getCrawlerSettings $ crawler
 
     runResourceT $ fetchUpstream crawler
                 =$ L.map (\x -> fromCrawledDocument x :: CrawledWarcEntry)
@@ -31,7 +31,7 @@ fetchUpstream crawler = do
 
   ma <- liftIO . atomically $ do
     status <- readTVar . getCrawlerStatus $ crawler
-    if (status /= Halted)
+    if status /= Halted
         then Just <$> (readQueue . getStoreQueue $ crawler)
         else return Nothing
 

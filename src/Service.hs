@@ -1,8 +1,5 @@
 {-# LANGUAGE DataKinds,
-             DeriveAnyClass,
-             DeriveGeneric,
              FlexibleInstances,
-             GeneralizedNewtypeDeriving,
              MultiParamTypeClasses,
              OverloadedStrings,
              ScopedTypeVariables,
@@ -19,7 +16,7 @@ import Shared
 import Types
 import Urls                                       (canonicaliseString)                 
 
-import           Control.Concurrent.STM           (atomically, readTVar)
+import           Control.Concurrent.STM           (atomically, readTVarIO)
 import           Control.Monad.IO.Class           (liftIO)
 import qualified Data.ByteString.Char8      as C8
 import qualified Data.ByteString.Lazy.Char8 as L8
@@ -49,7 +46,7 @@ crawlerServer crawler workers = status
 
     where
     status :: Handler CrawlerStatus
-    status = liftIO . atomically . readTVar . getCrawlerStatus $ crawler
+    status = liftIO . readTVarIO . getCrawlerStatus $ crawler
 
     workerStatus :: Handler [String]
     workerStatus = liftIO $ do
@@ -79,8 +76,7 @@ crawlerServer crawler workers = status
                      Right () -> return ()
 
     addIncludePattern :: String -> Handler ()
-    addIncludePattern pattern = liftIO . atomically $
-        S.insert (C8.pack pattern) (getUrlPatterns crawler)
+    addIncludePattern pat = liftIO . atomically $ S.insert (C8.pack pat) (getUrlPatterns crawler)
 
 start :: CountedQueue bq => Crawler bq -> Workers -> IO ()
 start crawler workers = run 8081 (crawlerApp crawler workers)

@@ -19,14 +19,14 @@ emptyHrefDirections = []
 findDirection :: CanonicalUrl -> ByteString -> CrawlerSettings -> IO (Maybe CanonicalUrl)
 findDirection cUrl pageData crawlerSettings = do
 
-    hds <- atomically . readTVar . getHrefDirections $ crawlerSettings
+    hds <- readTVarIO . getHrefDirections $ crawlerSettings
     return $ findDirection' cUrl hds
 
     where
     findDirection' :: CanonicalUrl -> [HrefDirection] -> Maybe CanonicalUrl
-    findDirection' (CanonicalUrl url) hrefDirections =
+    findDirection' (CanonicalUrl url) =
 
-        headMay . mapMaybe matchOnPage . filter urlIsMatching $ hrefDirections
+        headMay . mapMaybe matchOnPage . filter urlIsMatching
 
         where
         urlIsMatching :: HrefDirection -> Bool
@@ -61,5 +61,4 @@ hrefDirection = skipSpace *> do
     parseHrefLine particular = do
         skipSpace <* string particular <* takeTill (=='=')
         _ <- char '='
-        v <- skipSpace *> takeTill (\x -> x == '\r' || x == '\n')
-        return v
+        skipSpace *> takeTill (\x -> x == '\r' || x == '\n')

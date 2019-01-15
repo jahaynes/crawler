@@ -3,7 +3,6 @@
 module Crawl where
 
 import CountedQueue.Bounded   as Bounded
-import CountedQueue.Unbounded as Unbounded
 
 import CountedQueue
 import Communication                    (CrawlerStatus(..))
@@ -18,7 +17,7 @@ import Shared
 import Types
 
 import Control.Concurrent               (ThreadId, myThreadId)
-import Control.Concurrent.STM           (STM, atomically, writeTVar, readTVar, modifyTVar', newTVarIO)
+import Control.Concurrent.STM           (STM, atomically, writeTVar, readTVar, readTVarIO, modifyTVar', newTVarIO)
 import Control.Monad                    (replicateM_, when, void)
 import Control.Monad.Trans.Resource     (runResourceT)
 import Data.ByteString.Char8      as C8 (ByteString, concat, isInfixOf)
@@ -95,10 +94,9 @@ crawlUrls workers crawlerState threadId logFunc =
 
         putStrLn $ "Thread " ++ show threadId ++ " running"
 
-        status <- atomically . readTVar . getCrawlerStatus $ crawlerState
+        status <- readTVarIO . getCrawlerStatus $ crawlerState
 
-        when (status /= RunningStatus) $ do
-
+        when (status /= RunningStatus) $
             atomically $ S.insert threadId (getCrawlerThreadsToStop workers)
 
         when (status == RunningStatus) $ do
@@ -109,7 +107,7 @@ crawlUrls workers crawlerState threadId logFunc =
                 logFunc . GeneralMessage . C8.concat $ ["(Step Mode)... ", bs, "\nEnter to continue"]
                 void getLine
 
-            cookiesToSend <- atomically . readTVar . getCookieList $ crawlerState
+            cookiesToSend <- readTVarIO . getCookieList $ crawlerState
 
             resetThreadClock nextUrl
 
@@ -131,7 +129,7 @@ crawlUrls workers crawlerState threadId logFunc =
                 let moreCookies = responseCookies ++ cookiesSent
                 directionResponse <- runResourceT $ fetch (getManager crawlerState) (getCrawlerSettings crawlerState) moreCookies (GetRequest direction)
                 processResult directionResponse nextUrl moreCookies
-            Nothing -> do
+            Nothing ->
                 --Give meta refresh a chance to fire
                 case findPageRedirect nextUrl parsedTags of --TODO - should this be head redirects
                     Just metaRefreshUrl -> do
@@ -148,7 +146,7 @@ crawlUrls workers crawlerState threadId logFunc =
 
                     Nothing -> do
                         let (hrefErrors, nextHrefs, forms) = parsePage redirects parsedTags
-                        formInstructions <- atomically . readTVar . getFormInstructions . getCrawlerSettings $ crawlerState
+                        formInstructions <- readTVarIO . getFormInstructions . getCrawlerSettings $ crawlerState
                         case selectFormOptions formInstructions forms of
                             Just formRequest -> do
                                 let moreCookies = responseCookies ++ cookiesSent
