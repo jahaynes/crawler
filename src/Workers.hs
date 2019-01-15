@@ -6,13 +6,15 @@ import Output
 import Settings
 import Types
 
+import CountedQueue (CountedQueue)
+
 import Control.Concurrent                   (ThreadId, forkIO)
 import Control.Concurrent.STM               (STM, atomically)
 import qualified Service
 import qualified StmContainers.Set  as S
 import qualified StmContainers.Map  as M
 
-initialiseWorkers :: Crawler -> LogFunction -> IO ()
+initialiseWorkers :: CountedQueue bq => Crawler bq -> LogFunction -> IO ()
 initialiseWorkers crawler logFunc = do
 
     crawlerThreads <- S.newIO

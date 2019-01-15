@@ -1,6 +1,5 @@
 module Types where
 
-import CountedQueue
 import Communication
 
 import Data.ByteString.Char8            (ByteString, unpack)
@@ -24,12 +23,12 @@ data CrawledDocument = CrawledDocument
                      , getThreadId :: ThreadId
                      } deriving Show
 
-data Crawler = Crawler {
+data Crawler bq = Crawler {
     getCrawlerStatus :: TVar CrawlerStatus,
     getUrlQueue :: PoliteQueue,  
-    getStoreQueue :: CountedQueue CrawledDocument,
+    getStoreQueue :: bq CrawledDocument,
     getNumStored :: TVar Int,
-    getLogQueue :: CountedQueue Loggable,
+    getLogQueue :: bq Loggable,
     getManager :: Manager,
     getCookieList :: TVar [Cookie],
     getUrlPatterns :: Set ByteString,
