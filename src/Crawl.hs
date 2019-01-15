@@ -2,6 +2,9 @@
 
 module Crawl where
 
+import CountedQueue.Bounded   as Bounded
+import CountedQueue.Unbounded as Unbounded
+
 import CountedQueue
 import Communication                    (CrawlerStatus(..))
 import Directions
@@ -29,13 +32,13 @@ import qualified StmContainers.Set as S
 import qualified StmContainers.Map as M
 import Text.HTML.TagSoup.Fast   (parseTags)
 
-createCrawler :: IO Crawler
+createCrawler :: IO (Crawler BoundedCountedQueue)
 createCrawler = do
     crawlerStatus <- newTVarIO RunningStatus
     urlQueue <- PQ.newIO
-    storeQueue <- newQueueIO (Bounded 32)
+    storeQueue <- Bounded.newQueueIO 32
     numStored <- newTVarIO 0
-    loggingQueue <- newQueueIO (Bounded 128)
+    loggingQueue <- Bounded.newQueueIO 128
     manager <- newManager (if ignoreBadHttpsCerts
                                then mkManagerSettings (TLSSettingsSimple True False False) Nothing
                                else tlsManagerSettings)
@@ -56,7 +59,7 @@ createCrawlerSettings = do
     crawlLimit <- newTVarIO Nothing
     return $ CrawlerSettings crawlOutput formInstructions hrefDirections proxySettings crawlLimit
 
-setNumCrawlers :: Crawler -> Workers -> LogFunction -> Int -> IO ()
+setNumCrawlers :: CountedQueue bq => Crawler bq -> Workers -> LogFunction -> Int -> IO ()
 setNumCrawlers crawlerState workers logFunc desiredNum = do
 
     threadsToAdd <- atomically $ do
@@ -85,7 +88,7 @@ setNumCrawlers crawlerState workers logFunc desiredNum = do
     getActiveCrawlerCount :: STM Int
     getActiveCrawlerCount = (-) <$> sizeOfSet (getCrawlerThreads workers) <*> sizeOfSet (getCrawlerThreadsToStop workers)
 
-crawlUrls :: Workers -> Crawler -> ThreadId -> LogFunction -> IO ()
+crawlUrls :: CountedQueue bq => Workers -> Crawler bq -> ThreadId -> LogFunction -> IO ()
 crawlUrls workers crawlerState threadId logFunc =
 
     whileActive threadId (getCrawlerThreads workers) (getCrawlerThreadsToStop workers) $ do
@@ -185,14 +188,14 @@ crawlUrls workers crawlerState threadId logFunc =
 
     resetThreadClock nextUrl = getCurrentTime >>= \c -> atomically . M.insert (c, nextUrl) threadId . getThreadClocks $ workers
 
-processNextUrl :: Crawler -> CanonicalUrl -> IO (Either ByteString ())
+processNextUrl :: Crawler bq -> CanonicalUrl -> IO (Either ByteString ())
 processNextUrl crawler url = do
     isAcceptable <- atomically $ checkAgainstIncludePatterns crawler url
     if isAcceptable
         then atomically $ insertIfNotDone crawler url
         else return . Left $ "URL wasn't acceptable"
 
-insertIfNotDone :: Crawler -> CanonicalUrl -> STM (Either ByteString ())
+insertIfNotDone :: Crawler bq -> CanonicalUrl -> STM (Either ByteString ())
 insertIfNotDone crawler url = do
     eNotDone <- checkNotDone crawler url
     case eNotDone of
@@ -201,7 +204,7 @@ insertIfNotDone crawler url = do
             S.insert url (getUrlsInProgress crawler)
             PQ.writeQueue url (getUrlQueue crawler)
 
-checkNotDone :: Crawler -> CanonicalUrl -> STM (Either ByteString ())
+checkNotDone :: Crawler bq -> CanonicalUrl -> STM (Either ByteString ())
 checkNotDone crawler url = do
     completed <- S.lookup url (getUrlsCompleted crawler)
     inProgress <- S.lookup url (getUrlsInProgress crawler)
@@ -212,6 +215,6 @@ checkNotDone crawler url = do
         (_,_,True) -> return $ Left "URL previously failed"
         _          -> return $ Right ()
 
-checkAgainstIncludePatterns :: Crawler -> CanonicalUrl -> STM Bool
+checkAgainstIncludePatterns :: Crawler bq -> CanonicalUrl -> STM Bool
 checkAgainstIncludePatterns crawlerState (CanonicalUrl url) =
     any (`isInfixOf` url) <$> setAsList (getUrlPatterns crawlerState)

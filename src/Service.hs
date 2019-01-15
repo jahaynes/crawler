@@ -11,6 +11,7 @@
 module Service where
 
 import Communication
+import           CountedQueue       (CountedQueue)
 import qualified CountedQueue as CQ
 import Crawl                                      (processNextUrl)
 import qualified PoliteQueue as PQ
@@ -36,10 +37,10 @@ type CrawlerApi = "status"                                      :> Get '[JSON] C
 crawlerApi :: Proxy CrawlerApi
 crawlerApi = Proxy
 
-crawlerApp :: Crawler -> Workers -> Application
+crawlerApp :: CountedQueue bq => Crawler bq -> Workers -> Application
 crawlerApp crawler workers = serve crawlerApi (crawlerServer crawler workers)
 
-crawlerServer :: Crawler -> Workers -> Server CrawlerApi
+crawlerServer :: CountedQueue bq => Crawler bq -> Workers -> Server CrawlerApi
 crawlerServer crawler workers = status
                            :<|> workerStatus
                            :<|> queueSize
@@ -81,5 +82,5 @@ crawlerServer crawler workers = status
     addIncludePattern pattern = liftIO . atomically $
         S.insert (C8.pack pattern) (getUrlPatterns crawler)
 
-start :: Crawler -> Workers -> IO ()
+start :: CountedQueue bq => Crawler bq -> Workers -> IO ()
 start crawler workers = run 8081 (crawlerApp crawler workers)

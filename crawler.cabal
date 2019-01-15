@@ -45,6 +45,8 @@ executable crawler
 
   other-modules:       Communication,
                        CountedQueue,
+                       CountedQueue.Bounded,
+                       CountedQueue.Unbounded,
                        Crawl,
                        Directions,
                        Errors,

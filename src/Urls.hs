@@ -7,10 +7,10 @@ import Types
 
 import           Data.ByteString             (ByteString)
 import qualified Data.ByteString.Char8 as C8 
-import Data.ByteString.Search                (breakOn, breakAfter)
-import Data.List.Split                       (splitWhen)
-import Network.URI
-import Network.HTTP.Client                   (Request, getUri)
+import           Data.ByteString.Search      (breakOn, breakAfter)
+import           Data.List.Split             (splitWhen)
+import           Network.URI
+import           Network.HTTP.Client         (Request, getUri)
 
 canonicaliseRequest :: Monad m => Request -> m CanonicalUrl
 canonicaliseRequest req =

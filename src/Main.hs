@@ -11,13 +11,12 @@ import PoliteQueue as PQ
 import Types
 import Workers
 
-import Control.Concurrent               (threadDelay)
-import Control.Concurrent.STM           (STM, atomically, readTVar, writeTVar)
-import Control.Monad                    (unless, when)
-
-import System.Environment               (getArgs)
-import System.IO                        (hPrint, stderr)
-import System.Remote.Monitoring         (forkServer)
+import Control.Concurrent       (threadDelay)
+import Control.Concurrent.STM   (STM, atomically, readTVar, writeTVar)
+import Control.Monad            (unless, when)
+import System.Environment       (getArgs)
+import System.IO                (hPrint, stderr)
+import System.Remote.Monitoring (forkServer)
 
 
 defaultLogging :: LogFunction
