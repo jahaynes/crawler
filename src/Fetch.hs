@@ -44,7 +44,7 @@ fetch man crawlerSettings requestCookies downloadRequest = do
     dedupe :: [CanonicalUrl] -> [CanonicalUrl]
     dedupe = map head . group
 
-    -- checkSize :: DownloadSource -> WebIO ()
+    checkSize :: MonadResource m => Response b -> m ()
     checkSize res = case getContentLength of
                     Just x | x <= maxContentLength -> return ()
                            | otherwise -> error "TODO - Too big"
@@ -56,9 +56,6 @@ fetch man crawlerSettings requestCookies downloadRequest = do
             case filter (\(k,_) -> mk k == mk hContentLength) . responseHeaders $ res of
                 [] -> Nothing
                 ((_,x):_) -> readMay $ unpack x
-
-    --downloadBodySource :: DownloadSource -> WebIO BS.ByteString
-    -- downloadBodySource res = responseBody res $$+- CL.map (BS.take maxContentLength) $= (toStrict <$> sinkLbs)
 
     -- followRedirects :: WebIO (DownloadSource, [CanonicalUrl])
     followRedirects = do
