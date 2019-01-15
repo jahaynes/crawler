@@ -12,7 +12,7 @@ import Types
 import Workers
 
 import Control.Concurrent       (threadDelay)
-import Control.Concurrent.STM   (STM, atomically, readTVar, writeTVar)
+import Control.Concurrent.STM   (STM, atomically, readTVar, readTVarIO, writeTVar)
 import Control.Monad            (unless, when)
 import System.Environment       (getArgs)
 import System.IO                (hPrint, stderr)
@@ -46,7 +46,7 @@ main = do
         threadDelay oneSecond
         atomically checkShutdown
 
-        status <- atomically . readTVar . getCrawlerStatus $ crawler
+        status <- readTVarIO . getCrawlerStatus $ crawler
 
         unless (status == Halted) $ run crawler
 
@@ -69,5 +69,5 @@ main = do
                                 Nothing -> False
                                 Just cl -> numStored >= cl
 
-            when (noWork || quotaDone) $ do
+            when (noWork || quotaDone) $
               writeTVar (getCrawlerStatus crawler) HaltingStatus

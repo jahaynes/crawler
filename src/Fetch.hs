@@ -34,8 +34,7 @@ fetch man crawlerSettings requestCookies downloadRequest = do
 
     checkSize response
 
-    content <- do
-        (responseBody response) $$ CL.map (BS.take maxContentLength) $= (toStrict <$> sinkLbs)
+    content <- responseBody response $$ CL.map (BS.take maxContentLength) $= (toStrict <$> sinkLbs)
 
     --TODO - see if this dedupe / append is necessary
     return $ DownloadResult content responseCookies (dedupe (redirects ++ [getUrl downloadRequest]))
@@ -79,7 +78,7 @@ fetch man crawlerSettings requestCookies downloadRequest = do
             followRedirect res code = do
                 let resHeaders = responseHeaders res
                     resCookieJar = responseCookieJar res
-                case getRedirectedRequest req resHeaders resCookieJar code of --extract this into a webio
+                case getRedirectedRequest req resHeaders resCookieJar code of
                     Just redirReq -> do
                         nextUrl <- canonicaliseRequest redirReq
                         go (nextUrl:redirs) (n-1) redirReq

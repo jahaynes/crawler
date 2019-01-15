@@ -87,7 +87,7 @@ derelativise onUrl rawBsUrl
 
     sanitiseUrl = encodeSpaces . dropFragments
 
-    dropFragments unsanitised | '#' `C8.elem` unsanitised = C8.takeWhile (\c -> not (c == '#')) unsanitised
+    dropFragments unsanitised | '#' `C8.elem` unsanitised = C8.takeWhile (/= '#') unsanitised
                               | otherwise                 = unsanitised
 
     encodeSpaces unsanitised | ' ' `C8.elem` unsanitised = C8.intercalate "%20" $ C8.split ' ' unsanitised
