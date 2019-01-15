@@ -25,7 +25,7 @@ import qualified Data.ByteString.Lazy.Char8 as L8
 import           GHC.Conc                         (threadStatus)
 import           Network.Wai.Handler.Warp         (run)
 import           Servant
-import qualified STMContainers.Set          as S
+import qualified StmContainers.Set          as S
 
 type CrawlerApi = "status"                                      :> Get '[JSON] CrawlerStatus
              :<|> "workerStatus"                                :> Get '[JSON] [String]

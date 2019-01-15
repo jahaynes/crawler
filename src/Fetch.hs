@@ -7,11 +7,12 @@ import Request
 import Settings
 import Types
 
+import Control.Monad.Trans.Resource (MonadResource)
 import Data.CaseInsensitive         (mk)
 import Data.ByteString.Char8        (unpack)
 import Data.ByteString.Lazy.Char8   (toStrict)
 import qualified Data.ByteString    as BS
-import Data.Conduit                 (($$+-), ($=))
+import Data.Conduit                 
 import Data.Conduit.Binary          (sinkLbs)
 import qualified Data.Conduit.List  as CL (map)
 import Data.List                    (group)
@@ -24,7 +25,7 @@ import Network.HTTP.Types
 
    TODO - do it before merging and recapture all those Lefts we dropped -}
 
-fetch :: Manager -> CrawlerSettings -> [Cookie] -> DownloadRequest -> WebIO DownloadResult
+fetch :: MonadResource m => Manager -> CrawlerSettings -> [Cookie] -> DownloadRequest -> m DownloadResult
 fetch man crawlerSettings requestCookies downloadRequest = do
 
     (response, redirects) <- followRedirects
@@ -33,7 +34,8 @@ fetch man crawlerSettings requestCookies downloadRequest = do
 
     checkSize response
 
-    content <- downloadBodySource response
+    content <- do
+        (responseBody response) $$ CL.map (BS.take maxContentLength) $= (toStrict <$> sinkLbs)
 
     --TODO - see if this dedupe / append is necessary
     return $ DownloadResult content responseCookies (dedupe (redirects ++ [getUrl downloadRequest]))
@@ -42,10 +44,10 @@ fetch man crawlerSettings requestCookies downloadRequest = do
     dedupe :: [CanonicalUrl] -> [CanonicalUrl]
     dedupe = map head . group
 
-    checkSize :: DownloadSource -> WebIO ()
+    checkSize :: MonadResource m => Response b -> m ()
     checkSize res = case getContentLength of
                     Just x | x <= maxContentLength -> return ()
-                           | otherwise -> webErr "Too big"
+                           | otherwise -> error "TODO - Too big"
                     Nothing -> return ()
 
         where
@@ -55,18 +57,15 @@ fetch man crawlerSettings requestCookies downloadRequest = do
                 [] -> Nothing
                 ((_,x):_) -> readMay $ unpack x
 
-    downloadBodySource :: DownloadSource -> WebIO BS.ByteString
-    downloadBodySource res = responseBody res $$+- CL.map (BS.take maxContentLength) $= (toStrict <$> sinkLbs)
-
-    followRedirects :: WebIO (DownloadSource, [CanonicalUrl])
+    -- followRedirects :: WebIO (DownloadSource, [CanonicalUrl])
     followRedirects = do
         initialRequest <- buildRequest crawlerSettings requestCookies downloadRequest
         firstUrl <- canonicaliseRequest initialRequest
         go [firstUrl] maxRedirects initialRequest
 
         where
-        go :: [CanonicalUrl] -> Int -> Request -> WebIO (DownloadSource, [CanonicalUrl])
-        go      _ 0   _ = webErr "Too many redirects.  Aborting."
+        --go :: [CanonicalUrl] -> Int -> Request -> WebIO (DownloadSource, [CanonicalUrl])
+        go      _ 0   _ = error "TODO - Too many redirects.  Aborting."
         go redirs n req = do
             res <- http req man
             let code = statusCode . responseStatus $ res
@@ -84,4 +83,4 @@ fetch man crawlerSettings requestCookies downloadRequest = do
                     Just redirReq -> do
                         nextUrl <- canonicaliseRequest redirReq
                         go (nextUrl:redirs) (n-1) redirReq
-                    Nothing -> webErr "Could not create redirect request"
+                    Nothing -> error "TODO - Could not create redirect request"

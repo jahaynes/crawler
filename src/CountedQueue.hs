@@ -6,14 +6,14 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 import qualified Control.Concurrent.STM.TQueue as Q
 import qualified Control.Concurrent.STM.TBQueue as BQ
 import qualified Control.Concurrent.STM.TVar as TV
-
 import Data.Conduit
+import GHC.Natural (Natural)
 
 data CountedQueue a = CountedQueue (TV.TVar Int) (Q.TQueue a) 
                     | BoundedCountedQueue (TV.TVar Int) (BQ.TBQueue a) 
 
 data BoundedNess = Unbounded
-                 | Bounded Int
+                 | Bounded Natural
 
 newQueueIO :: BoundedNess -> IO (CountedQueue a)
 newQueueIO Unbounded = do
@@ -48,7 +48,7 @@ size :: CountedQueue a -> STM Int
 size (CountedQueue sz _) = TV.readTVar sz
 size (BoundedCountedQueue sz _) = TV.readTVar sz
 
-sourceQueue :: MonadIO m => CountedQueue a -> Source m a
+sourceQueue :: MonadIO m => CountedQueue o -> ConduitT i o m b
 sourceQueue q =
     forever $ do
         a <- liftIO . atomically . readQueue $ q
