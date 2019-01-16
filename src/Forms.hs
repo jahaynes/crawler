@@ -53,7 +53,7 @@ getForms onUrl = map asForm . isolateForms
         takeWhilePlus1 p (x:xs) | p x       = x : takeWhilePlus1 p xs
                                 | otherwise = x : takeWhilePlus1 p []
 
-selectFormOptions :: SuppliedFormActions -> [Form] -> Maybe DownloadRequest
+selectFormOptions :: SuppliedFormActions -> [Form] -> Maybe FormRequest
 selectFormOptions              _ [] = Nothing
 selectFormOptions suppliedFormActions (Form formLocation (Action method (RelativeUrl relUrl)) inputs : fs) = do
 

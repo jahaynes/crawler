@@ -21,7 +21,7 @@ import Network.HTTP.Conduit
 import Safe                         (readMay)
 import Network.HTTP.Types           
 
-fetch :: MonadResource m => Manager -> CrawlerSettings -> [Cookie] -> DownloadRequest -> m DownloadResult
+fetch :: (MonadResource m, DownloadRequest dr) => Manager -> CrawlerSettings -> [Cookie] -> dr -> m DownloadResult
 fetch man crawlerSettings requestCookies downloadRequest = do
 
     (response, redirects) <- followRedirects

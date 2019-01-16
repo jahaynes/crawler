@@ -6,12 +6,10 @@ import Types
 
 import Control.Concurrent.STM
 import Control.Monad.IO.Class       (MonadIO, liftIO)
-import Data.CaseInsensitive         (mk)
 import GHC.Exception                (SomeException)
 import Network.HTTP.Conduit
-import Network.HTTP.Types           (methodPost)
 
-buildRequest :: MonadIO m => CrawlerSettings -> [Cookie] -> DownloadRequest -> m Request
+buildRequest :: (MonadIO m, DownloadRequest dr) => CrawlerSettings -> [Cookie] -> dr -> m Request
 buildRequest crawlerSettings requestCookies downloadRequest = do
 
     mProxySettings <- liftIO . readTVarIO . getProxySettings $ crawlerSettings
@@ -40,9 +38,3 @@ buildRequest crawlerSettings requestCookies downloadRequest = do
         applyProxy = case mProxySettings of
                          Nothing -> id
                          Just (ProxySettings pAddress pPort) -> addProxy pAddress pPort
-
-        applyParametersFrom :: DownloadRequest -> (Request -> Request)
-        applyParametersFrom (GetRequest _) = id
-        applyParametersFrom (FormRequest     _ formMethod _ (FormParameters params))
-            | mk formMethod == mk methodPost = urlEncodedBody params
-            | otherwise                      = setQueryString (map (\(k,v) -> (k,Just v)) params)
