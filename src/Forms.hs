@@ -2,6 +2,7 @@
 
 module Forms where
 
+import FormTypes
 import Types
 import Urls                     (derelativise)
 

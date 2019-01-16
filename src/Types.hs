@@ -39,11 +39,11 @@ data Crawler bq = Crawler {
 }
 
 data CrawlerSettings = CrawlerSettings {
-    getCrawlOutput :: TVar (Maybe Output),
+    getCrawlOutput      :: TVar (Maybe Output),
     getFormInstructions :: TVar SuppliedFormActions,
-    getHrefDirections :: TVar [HrefDirection],
-    getProxySettings :: TVar (Maybe ProxySettings),
-    getCrawlLimit :: TVar (Maybe Int)
+    getHrefDirections   :: TVar [HrefDirection],
+    getProxySettings    :: TVar (Maybe ProxySettings),
+    getCrawlLimit       :: TVar (Maybe Int)
 }
 
 data PoliteQueue = PoliteQueue {
@@ -85,15 +85,12 @@ data Loggable = CrawlWarning CanonicalUrl ByteString
               | GeneralError ByteString
                   deriving Show
 
-data Form = Form CanonicalUrl Action [FormParameters] deriving Show
 newtype Label = Label ByteString deriving (Show, Eq, Ord)
 type FormKey = ByteString
 type FormValue = ByteString
 
 data DownloadRequest = GetRequest CanonicalUrl
                      | FormRequest Label Method CanonicalUrl FormParameters deriving Show
-
--- type DownloadSource = Response (ResumableSource WebIO ByteString)
 
 data DownloadResult = DownloadResult !ByteString ![Cookie] ![CanonicalUrl]
 
@@ -102,12 +99,6 @@ newtype FormActionRegex = FormActionRegex ByteString deriving Show
 newtype FormParameters = FormParameters [(FormKey, FormValue)] deriving Show
 
 newtype SuppliedFormActions = SuppliedFormActions (M.Map Label (UrlRegex, FormActionRegex, FormParameters)) deriving Show
-
-data ApplicableSuppliedFormActions = ApplicableSuppliedFormActions Label FormParameters deriving Show
-
-data CombinedFormActions = CombinedFormActions Label FormParameters
-
-data Action = Action Method RelativeUrl deriving Show
 
 newtype RelativeUrl = RelativeUrl ByteString deriving Show
 
