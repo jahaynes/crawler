@@ -7,6 +7,7 @@ import CountedQueue.Bounded   as Bounded
 import CountedQueue
 import Communication                    (CrawlerStatus(..))
 import Directions
+import DownloadRequest
 import qualified PoliteQueue as PQ
 import Errors                           (LogFunction)
 import Fetch
@@ -216,3 +217,6 @@ checkNotDone crawler url = do
 checkAgainstIncludePatterns :: Crawler bq -> CanonicalUrl -> STM Bool
 checkAgainstIncludePatterns crawlerState (CanonicalUrl url) =
     any (`isInfixOf` url) <$> setAsList (getUrlPatterns crawlerState)
+    where
+    setAsList :: S.Set a -> STM [a]
+    setAsList = L.toList . S.listT

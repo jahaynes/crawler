@@ -18,10 +18,10 @@ canonicaliseRequest req =
         Nothing -> error "TODO handle better - Couldn't canonicalise URL from Request"
         Just url -> return url
 
-canonicaliseNetworkUri :: URI -> Maybe CanonicalUrl
-canonicaliseNetworkUri = canonicaliseString . show . stripPort
-
     where
+    canonicaliseNetworkUri :: URI -> Maybe CanonicalUrl
+    canonicaliseNetworkUri = canonicaliseString . show . stripPort
+
     stripPort :: URI -> URI
     stripPort uri = uri { uriAuthority = stripPort' (uriScheme uri) <$> uriAuthority uri }
         where
@@ -34,10 +34,7 @@ canonicaliseByteString :: ByteString -> Maybe CanonicalUrl
 canonicaliseByteString = canonicaliseString . C8.unpack
 
 canonicaliseString :: String -> Maybe CanonicalUrl
-canonicaliseString str =
-    case parseAbsoluteURI (discard str) of
-        Just x -> Just (CanonicalUrl (C8.pack . normalize . show $ (x :: URI)))
-        Nothing -> Nothing  --TODO - this looks double-handled
+canonicaliseString str = CanonicalUrl . C8.pack . normalize . show <$> parseAbsoluteURI (discard str)
 
 normalize :: String -> String
 normalize = normalizeCase . normalizeEscape . normalizePathSegments

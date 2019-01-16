@@ -3,6 +3,7 @@
 module Parse where
 
 import Forms
+import FormTypes
 import Shared (both, trim)
 import Types
 import Urls

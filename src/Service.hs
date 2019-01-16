@@ -51,11 +51,7 @@ crawlerServer crawler workers = status
     workerStatus :: Handler [String]
     workerStatus = liftIO $ do
         ls <- atomically $ mapAsList (getActiveThreads workers)
-        statuses <- mapM (threadStatus . fst) ls
-        {- let ns = zip (map snd ls) statuses
-            ss = map (\(n,s) -> n ++ ": " ++ show s) ns
-            return $ WorkerStatus ss 0 -}
-        return $ map show statuses
+        map show <$> mapM (threadStatus . fst) ls
 
     queueSize :: QueueName -> Handler Int
     queueSize queueName = liftIO . atomically $
