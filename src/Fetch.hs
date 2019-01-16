@@ -20,11 +20,6 @@ import Network.HTTP.Conduit
 import Safe                         (readMay)
 import Network.HTTP.Types           
 
-{- Big TODO - make a Debug type to represent Left,
-   containing cookies, canonicalUrls, error messages, etc. 
-
-   TODO - do it before merging and recapture all those Lefts we dropped -}
-
 fetch :: MonadResource m => Manager -> CrawlerSettings -> [Cookie] -> DownloadRequest -> m DownloadResult
 fetch man crawlerSettings requestCookies downloadRequest = do
 

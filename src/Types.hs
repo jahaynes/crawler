@@ -19,22 +19,22 @@ import StmContainers.Set                (Set, listT)
 
 data CrawledDocument = CrawledDocument
                      { getRedirectChain :: [CanonicalUrl]
-                     , getContent :: ByteString
-                     , getThreadId :: ThreadId
+                     , getContent       :: ByteString
+                     , getThreadId      :: ThreadId
                      } deriving Show
 
 data Crawler bq = Crawler {
-    getCrawlerStatus :: TVar CrawlerStatus,
-    getUrlQueue :: PoliteQueue,  
-    getStoreQueue :: bq CrawledDocument,
-    getNumStored :: TVar Int,
-    getLogQueue :: bq Loggable,
-    getManager :: Manager,
-    getCookieList :: TVar [Cookie],
-    getUrlPatterns :: Set ByteString,
-    getUrlsInProgress :: Set CanonicalUrl,
-    getUrlsCompleted :: Set CanonicalUrl,
-    getUrlsFailed :: Map CanonicalUrl String,
+    getCrawlerStatus   :: TVar CrawlerStatus,
+    getUrlQueue        :: PoliteQueue,
+    getStoreQueue      :: bq CrawledDocument,
+    getNumStored       :: TVar Int,
+    getLogQueue        :: bq Loggable,
+    getManager         :: Manager,
+    getCookieList      :: TVar [Cookie],
+    getUrlPatterns     :: Set ByteString,
+    getUrlsInProgress  :: Set CanonicalUrl,
+    getUrlsCompleted   :: Set CanonicalUrl,
+    getUrlsFailed      :: Map CanonicalUrl String,
     getCrawlerSettings :: CrawlerSettings
 }
 
@@ -54,11 +54,10 @@ data PoliteQueue = PoliteQueue {
                    }
 
 data Workers = Workers {
-    getCrawlerThreads :: Set ThreadId,
+    getCrawlerThreads       :: Set ThreadId,
     getCrawlerThreadsToStop :: Set ThreadId,
-
-    getActiveThreads :: Map ThreadId String,
-    getThreadClocks :: Map ThreadId (UTCTime, CanonicalUrl)
+    getActiveThreads        :: Map ThreadId String,
+    getThreadClocks         :: Map ThreadId (UTCTime, CanonicalUrl)
 }
 
 newtype Output = WarcFile FilePath
@@ -98,7 +97,8 @@ newtype UrlRegex = UrlRegex ByteString deriving Show
 newtype FormActionRegex = FormActionRegex ByteString deriving Show
 newtype FormParameters = FormParameters [(FormKey, FormValue)] deriving Show
 
-newtype SuppliedFormActions = SuppliedFormActions (M.Map Label (UrlRegex, FormActionRegex, FormParameters)) deriving Show
+newtype SuppliedFormActions =
+    SuppliedFormActions (M.Map Label (UrlRegex, FormActionRegex, FormParameters)) deriving Show
 
 newtype RelativeUrl = RelativeUrl ByteString deriving Show
 
