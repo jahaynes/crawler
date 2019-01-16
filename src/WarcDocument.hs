@@ -7,7 +7,6 @@ import qualified Data.ByteString.Char8 as C8
 import Types
 import Data.Warc.WarcEntry as WE
 import Data.Warc.Body
-import Data.Warc.Shared
 import Data.Warc.Header
 import Data.Warc.HeaderLine
 import Data.Warc.Key
@@ -17,7 +16,7 @@ newtype CrawledWarcEntry = CrawledWarcEntry WarcEntry
 
 instance FromCrawledDocument CrawledWarcEntry where
 
-    fromCrawledDocument (CrawledDocument redirectChain content threadId) = 
+    fromCrawledDocument (CrawledDocument redirectChain content _) = 
 
         let ver = WarcVersion "1.0"
             len = IntValue (C8.length content)
