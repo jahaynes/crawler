@@ -8,14 +8,13 @@ import Data.Hashable                    (Hashable, hashWithSalt)
 import qualified Data.Map       as M
 
 import Control.Concurrent               (ThreadId)
-import Control.Concurrent.STM           (STM, TVar)
+import Control.Concurrent.STM           (TVar)
 import Control.Concurrent.STM.TQueue    (TQueue)
 import Data.Time                        (UTCTime)
-import ListT                            (toList)
 import Network.HTTP.Conduit             (Manager, Cookie)
 import Network.HTTP.Types               (Method)
 import StmContainers.Map                (Map)
-import StmContainers.Set                (Set, listT)
+import StmContainers.Set                (Set)
 
 data CrawledDocument = CrawledDocument
                      { getRedirectChain :: [CanonicalUrl]
@@ -108,9 +107,6 @@ newtype HrefRegex = HrefRegex ByteString deriving Show
 getUrl :: DownloadRequest -> CanonicalUrl
 getUrl (GetRequest url) = url
 getUrl (FormRequest _ _ targetUrl _) = targetUrl
-
-setAsList :: Set a -> STM [a]
-setAsList = toList . listT
 
 data ProxySettings = ProxySettings ByteString Int
 

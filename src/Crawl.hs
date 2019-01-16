@@ -216,3 +216,6 @@ checkNotDone crawler url = do
 checkAgainstIncludePatterns :: Crawler bq -> CanonicalUrl -> STM Bool
 checkAgainstIncludePatterns crawlerState (CanonicalUrl url) =
     any (`isInfixOf` url) <$> setAsList (getUrlPatterns crawlerState)
+    where
+    setAsList :: S.Set a -> STM [a]
+    setAsList = L.toList . S.listT
