@@ -2,6 +2,7 @@
 
 module Fetch where
 
+import DownloadRequest
 import Urls
 import Request
 import Settings

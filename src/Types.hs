@@ -12,7 +12,6 @@ import Control.Concurrent.STM           (TVar)
 import Control.Concurrent.STM.TQueue    (TQueue)
 import Data.Time                        (UTCTime)
 import Network.HTTP.Conduit             (Manager, Cookie)
-import Network.HTTP.Types               (Method)
 import StmContainers.Map                (Map)
 import StmContainers.Set                (Set)
 
@@ -87,9 +86,6 @@ newtype Label = Label ByteString deriving (Show, Eq, Ord)
 type FormKey = ByteString
 type FormValue = ByteString
 
-data DownloadRequest = GetRequest CanonicalUrl
-                     | FormRequest Label Method CanonicalUrl FormParameters deriving Show
-
 data DownloadResult = DownloadResult !ByteString ![Cookie] ![CanonicalUrl]
 
 newtype UrlRegex = UrlRegex ByteString deriving Show
@@ -104,9 +100,7 @@ newtype RelativeUrl = RelativeUrl ByteString deriving Show
 data HrefDirection = HrefDirection Label UrlRegex HrefRegex deriving Show
 newtype HrefRegex = HrefRegex ByteString deriving Show
 
-getUrl :: DownloadRequest -> CanonicalUrl
-getUrl (GetRequest url) = url
-getUrl (FormRequest _ _ targetUrl _) = targetUrl
+
 
 data ProxySettings = ProxySettings ByteString Int
 

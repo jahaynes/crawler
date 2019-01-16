@@ -7,6 +7,7 @@ import CountedQueue.Bounded   as Bounded
 import CountedQueue
 import Communication                    (CrawlerStatus(..))
 import Directions
+import DownloadRequest
 import qualified PoliteQueue as PQ
 import Errors                           (LogFunction)
 import Fetch

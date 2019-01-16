@@ -1,14 +1,15 @@
 module Request where
 
+import DownloadRequest
+import Settings
+import Types
+
 import Control.Concurrent.STM
 import Control.Monad.IO.Class       (MonadIO, liftIO)
 import Data.CaseInsensitive         (mk)
 import GHC.Exception                (SomeException)
 import Network.HTTP.Conduit
 import Network.HTTP.Types           (methodPost)
-
-import Settings
-import Types
 
 buildRequest :: MonadIO m => CrawlerSettings -> [Cookie] -> DownloadRequest -> m Request
 buildRequest crawlerSettings requestCookies downloadRequest = do

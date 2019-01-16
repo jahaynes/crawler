@@ -2,6 +2,7 @@
 
 module Forms where
 
+import DownloadRequest
 import FormTypes
 import Types
 import Urls                     (derelativise)

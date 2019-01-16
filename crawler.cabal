@@ -49,6 +49,7 @@ executable crawler
                        CountedQueue.Unbounded,
                        Crawl,
                        Directions,
+                       DownloadRequest,
                        Errors,
                        Fetch,
                        Forms,
