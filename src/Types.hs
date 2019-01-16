@@ -19,7 +19,7 @@ data CrawledDocument = CrawledDocument
                      { getRedirectChain :: [CanonicalUrl]
                      , getContent       :: ByteString
                      , getThreadId      :: ThreadId
-                     } deriving Show
+                     }
 
 data Crawler bq = Crawler {
     getCrawlerStatus   :: TVar CrawlerStatus,

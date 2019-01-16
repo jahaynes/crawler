@@ -5,7 +5,7 @@ import Types
 import Network.HTTP.Types (Method)
 
 data DownloadRequest = GetRequest CanonicalUrl
-                     | FormRequest Label Method CanonicalUrl FormParameters deriving Show
+                     | FormRequest Label Method CanonicalUrl FormParameters
 
 getUrl :: DownloadRequest -> CanonicalUrl
 getUrl (GetRequest url) = url
