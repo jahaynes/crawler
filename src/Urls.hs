@@ -18,10 +18,10 @@ canonicaliseRequest req =
         Nothing -> error "TODO handle better - Couldn't canonicalise URL from Request"
         Just url -> return url
 
-canonicaliseNetworkUri :: URI -> Maybe CanonicalUrl
-canonicaliseNetworkUri = canonicaliseString . show . stripPort
-
     where
+    canonicaliseNetworkUri :: URI -> Maybe CanonicalUrl
+    canonicaliseNetworkUri = canonicaliseString . show . stripPort
+
     stripPort :: URI -> URI
     stripPort uri = uri { uriAuthority = stripPort' (uriScheme uri) <$> uriAuthority uri }
         where
