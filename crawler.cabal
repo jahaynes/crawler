@@ -52,6 +52,7 @@ executable crawler
                        Errors,
                        Fetch,
                        Forms,
+                       FormTypes,
                        Initialisation,
                        Output,
                        Parse,
