@@ -24,7 +24,7 @@ executable crawler
                        http-client,
                        http-conduit,
                        http-types,
-                       list-t,
+                       list-t == 1.0.2,
                        resourcet,
                        split,
                        stm,

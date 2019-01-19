@@ -1,19 +1,22 @@
 module Errors where
 
 import CountedQueue (CountedQueue, readQueue)
-import Types
+import Types        (Loggable)
 
 import Control.Concurrent.STM (atomically)
 import Control.Monad          (forever)
-import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Monad.IO.Class (liftIO)
 import Data.Conduit
 
-type LogFunction = Loggable -> IO ()
+data ErrorLogger bq =
+    ErrorLogger { getLogQueue    :: bq Loggable
+                , getLogFunction :: Loggable -> IO ()
+                }
 
-logErrors :: CountedQueue bq => Crawler bq -> LogFunction -> IO ()
-logErrors crawler logFunction =
-    runConduit $ sourceQueue (getLogQueue crawler)
+logErrors :: CountedQueue bq => ErrorLogger bq -> IO ()
+logErrors (ErrorLogger logQueue logFunction) =
+    runConduit $ sourceQueue logQueue
               .| awaitForever (liftIO . logFunction)
 
-sourceQueue :: (MonadIO m, CountedQueue q) => q a -> ConduitT i a m b
-sourceQueue q = forever $ (liftIO . atomically . readQueue $ q) >>= yield
+    where
+    sourceQueue q = forever $ (liftIO . atomically . readQueue $ q) >>= yield

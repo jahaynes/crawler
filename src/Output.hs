@@ -1,46 +1,53 @@
 module Output where
 
-import Communication
+import Communication                    (CrawlerStatus (Halted))
 import CountedQueue                     (CountedQueue, readQueue)
-import Control.Concurrent.STM           (atomically, readTVar, readTVarIO, writeTVar)
-import Data.ByteString                  (ByteString)
 import Types
+import WarcDocument                     (CrawledWarcEntry)
+
+import Control.Concurrent.STM           (TVar, atomically, readTVar, readTVarIO, writeTVar)
 import Control.Monad.IO.Class           (liftIO)
 import Control.Monad.Trans.Resource     (runResourceT, MonadResource)
+import Data.ByteString                  (ByteString)
 import Data.Conduit
 import Data.Conduit.Binary              (sinkFile, sinkHandle)
 import Data.Conduit.List as L           (map)
 import System.IO                        (stdout)
 
-import WarcDocument
+data PageStore bq =
+    PageStore { getCrawlerStatus :: TVar CrawlerStatus
+              , getOutputType    :: TVar (Maybe Output)
+              , getStoreQueue    :: bq CrawledDocument
+              }
 
-storePages :: CountedQueue bq => Crawler bq -> IO ()
-storePages crawler = do
+storePages :: CountedQueue bq => PageStore bq -> IO ()
+storePages (PageStore crawlerStatus outputType storeQueue) = do
 
-    mOutput <- readTVarIO . getCrawlOutput . getCrawlerSettings $ crawler
+    mOutput <- readTVarIO outputType
 
-    runResourceT $ fetchUpstream crawler
+    runResourceT $ fetchUpstream
                 =$ L.map (\x -> fromCrawledDocument x :: CrawledWarcEntry)
                 =$ L.map toStorableDocument
                 $$ getSink mOutput
 
-    atomically $ writeTVar (getCrawlerStatus crawler) Halted
-    
-fetchUpstream :: CountedQueue bq => MonadResource r => Crawler bq -> Source r CrawledDocument
-fetchUpstream crawler = do
+    atomically $ writeTVar crawlerStatus Halted
 
-  ma <- liftIO . atomically $ do
-    status <- readTVar . getCrawlerStatus $ crawler
-    if status /= Halted
-        then Just <$> (readQueue . getStoreQueue $ crawler)
-        else return Nothing
+    where
+    fetchUpstream :: MonadResource r => Source r CrawledDocument
+    fetchUpstream = do
 
-  case ma of
-      Nothing -> return ()
-      Just x -> do
-        yield x
-        fetchUpstream crawler
+        ma <- liftIO . atomically $ do
+            status <- readTVar crawlerStatus
+            if status /= Halted
+                then Just <$> readQueue storeQueue
+                else return Nothing
 
-getSink :: MonadResource r => Maybe Output -> Sink ByteString r ()
-getSink              Nothing = sinkHandle stdout
-getSink (Just (WarcFile wf)) = sinkFile wf
+        case ma of
+            Nothing -> return ()
+            Just x -> do
+                yield x
+                fetchUpstream
+
+    getSink :: MonadResource r => Maybe Output -> Sink ByteString r ()
+    getSink              Nothing = sinkHandle stdout
+    getSink (Just (WarcFile wf)) = sinkFile wf

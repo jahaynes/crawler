@@ -5,7 +5,6 @@ module Initialisation where
 import           CountedQueue           (CountedQueue, writeQueue)
 import           Crawl
 import           Directions
-import           Errors                 (LogFunction)
 import           Shared
 import           Types
 import           Urls
@@ -36,7 +35,7 @@ optionMapFromArgs =   OptionMap
     where
     isFlag x = length x > 1 && head x == '-'
 
-initialiseSettings :: CountedQueue bq => Crawler bq -> [String] -> LogFunction -> IO ()
+initialiseSettings :: CountedQueue bq => Crawler bq -> [String] -> (Loggable -> IO ()) -> IO ()
 initialiseSettings crawler args logFunc = do
 
     let optionMap = optionMapFromArgs args
@@ -61,7 +60,7 @@ initialiseSettings crawler args logFunc = do
         case M.lookup (OptionFlag "-wf") optionMap of
             Nothing -> return ()
             Just [warcFile] -> do
-                atomically $ writeTVar (getCrawlOutput crawlerSettings) (Just (WarcFile warcFile))
+                atomically $ writeTVar (getCrawlOutputType crawlerSettings) (Just (WarcFile warcFile))
                 logFunc . GeneralMessage . C8.pack . concat $ ["Writing output to: ", warcFile, "\n"]
 
     initialiseCrawlLimit crawlerSettings (OptionMap optionMap) =

@@ -37,7 +37,7 @@ data Crawler bq = Crawler {
 }
 
 data CrawlerSettings = CrawlerSettings {
-    getCrawlOutput      :: TVar (Maybe Output),
+    getCrawlOutputType  :: TVar (Maybe Output),
     getFormInstructions :: TVar SuppliedFormActions,
     getHrefDirections   :: TVar [HrefDirection],
     getProxySettings    :: TVar (Maybe ProxySettings),

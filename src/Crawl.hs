@@ -9,7 +9,6 @@ import Communication                    (CrawlerStatus(..))
 import Directions
 import DownloadRequest
 import qualified PoliteQueue as PQ
-import Errors                           (LogFunction)
 import Fetch
 import Forms                            (emptyFormActions, selectFormOptions)
 import Parse                            (parsePage, findPageRedirect)
@@ -19,9 +18,9 @@ import Types
 
 import Control.Concurrent               (ThreadId, myThreadId)
 import Control.Concurrent.STM           (STM, atomically, writeTVar, readTVar, readTVarIO, modifyTVar', newTVarIO)
-import Control.Monad                    (replicateM_, when, void)
+import Control.Monad                    (replicateM_, when)
 import Control.Monad.Trans.Resource     (runResourceT)
-import Data.ByteString.Char8      as C8 (ByteString, concat, isInfixOf)
+import Data.ByteString.Char8      as C8 (ByteString, isInfixOf)
 import Data.List                        ((\\))
 import Data.Maybe                       (isJust)
 import Data.Time
@@ -59,8 +58,8 @@ createCrawlerSettings = do
     crawlLimit <- newTVarIO Nothing
     return $ CrawlerSettings crawlOutput formInstructions hrefDirections proxySettings crawlLimit
 
-setNumCrawlers :: CountedQueue bq => Crawler bq -> Workers -> LogFunction -> Int -> IO ()
-setNumCrawlers crawlerState workers logFunc desiredNum = do
+setNumCrawlers :: CountedQueue bq => Crawler bq -> Workers -> Int -> IO ()
+setNumCrawlers crawlerState workers desiredNum = do
 
     threadsToAdd <- atomically $ do
         currentNumCrawlers <- getActiveCrawlerCount
@@ -83,13 +82,13 @@ setNumCrawlers crawlerState workers logFunc desiredNum = do
     addCrawler = forkIO_ $ do
         threadId <- myThreadId
         atomically $ S.insert threadId (getCrawlerThreads workers)
-        crawlUrls workers crawlerState threadId logFunc
+        crawlUrls workers crawlerState threadId
 
     getActiveCrawlerCount :: STM Int
     getActiveCrawlerCount = (-) <$> sizeOfSet (getCrawlerThreads workers) <*> sizeOfSet (getCrawlerThreadsToStop workers)
 
-crawlUrls :: CountedQueue bq => Workers -> Crawler bq -> ThreadId -> LogFunction -> IO ()
-crawlUrls workers crawlerState threadId logFunc =
+crawlUrls :: CountedQueue bq => Workers -> Crawler bq -> ThreadId -> IO ()
+crawlUrls workers crawlerState threadId =
 
     whileActive threadId (getCrawlerThreads workers) (getCrawlerThreadsToStop workers) $ do
 
@@ -102,11 +101,7 @@ crawlUrls workers crawlerState threadId logFunc =
 
         when (status == RunningStatus) $ do
 
-            nextUrl@(CanonicalUrl bs) <- atomically $ PQ.readQueue threadId (getUrlQueue crawlerState)
-
-            when stepMode $ do
-                logFunc . GeneralMessage . C8.concat $ ["(Step Mode)... ", bs, "\nEnter to continue"]
-                void getLine
+            nextUrl <- atomically $ PQ.readQueue threadId (getUrlQueue crawlerState)
 
             cookiesToSend <- readTVarIO . getCookieList $ crawlerState
 
