@@ -22,18 +22,19 @@ data CrawledDocument = CrawledDocument
                      }
 
 data Crawler bq = Crawler {
-    getCrawlerStatus   :: TVar CrawlerStatus,
-    getUrlQueue        :: PoliteQueue,
-    getStoreQueue      :: bq CrawledDocument,
-    getNumStored       :: TVar Int,
-    getLogQueue        :: bq Loggable,
-    getManager         :: Manager,
-    getCookieList      :: TVar [Cookie],
-    getUrlPatterns     :: Set ByteString,
-    getUrlsInProgress  :: Set CanonicalUrl,
-    getUrlsCompleted   :: Set CanonicalUrl,
-    getUrlsFailed      :: Map CanonicalUrl String,
-    getCrawlerSettings :: CrawlerSettings
+    getCrawlerStatus         :: TVar CrawlerStatus,
+    getUrlQueue              :: PoliteQueue,
+    getStoreQueue            :: bq CrawledDocument,
+    getNumStored             :: TVar Int,
+    getLogQueue              :: bq Loggable,
+    getManager               :: Manager,
+    getCookieList            :: TVar [Cookie],
+    getUrlIncludePatterns    :: Set ByteString,            -- TODO functionalise (ByteString -> Bool)
+    getDomainIncludePatterns :: Set ByteString,
+    getUrlsInProgress        :: Set CanonicalUrl,
+    getUrlsCompleted         :: Set CanonicalUrl,
+    getUrlsFailed            :: Map CanonicalUrl String,
+    getCrawlerSettings       :: CrawlerSettings
 }
 
 data CrawlerSettings = CrawlerSettings {

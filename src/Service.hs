@@ -25,12 +25,12 @@ import           Network.Wai.Handler.Warp         (run)
 import           Servant
 import qualified StmContainers.Set          as S
 
-type CrawlerApi = "status"                                      :> Get '[JSON] CrawlerStatus
-             :<|> "workerStatus"                                :> Get '[JSON] [String]
-             :<|> "queueSize"         :> Capture "x" QueueName  :> Get '[JSON] Int
-             :<|> "addUrl"            :> ReqBody '[JSON] String :> Post '[JSON] ()
-             :<|> "addIncludePattern" :> ReqBody '[JSON] String :> Post '[JSON] ()
-             :<|> "stop"                                        :> Post '[JSON] ()
+type CrawlerApi = "status"                                         :> Get '[JSON] CrawlerStatus
+             :<|> "workerStatus"                                   :> Get '[JSON] [String]
+             :<|> "queueSize"            :> Capture "x" QueueName  :> Get '[JSON] Int
+             :<|> "addUrl"               :> ReqBody '[JSON] String :> Post '[JSON] ()
+             :<|> "addUrlIncludePattern" :> ReqBody '[JSON] String :> Post '[JSON] ()
+             :<|> "stop"                                           :> Post '[JSON] ()
 
 crawlerApi :: Proxy CrawlerApi
 crawlerApi = Proxy
@@ -74,7 +74,7 @@ crawlerServer crawler workers = status
                      Right () -> return ()
 
     addIncludePattern :: String -> Handler ()
-    addIncludePattern pat = liftIO . atomically $ S.insert (C8.pack pat) (getUrlPatterns crawler)
+    addIncludePattern pat = liftIO . atomically $ S.insert (C8.pack pat) (getUrlIncludePatterns crawler)
 
     stop :: Handler ()
     stop = liftIO . atomically $ writeTVar (getCrawlerStatus crawler) HaltingStatus

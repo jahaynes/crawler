@@ -15,6 +15,7 @@ import Parse                            (parsePage, findPageRedirect)
 import Settings
 import Shared
 import Types
+import Urls                             (getDomain)
 
 import Control.Concurrent               (ThreadId, myThreadId)
 import Control.Concurrent.STM           (STM, atomically, writeTVar, readTVar, readTVarIO, modifyTVar', newTVarIO)
@@ -43,11 +44,12 @@ createCrawler = do
                                else tlsManagerSettings)
     cookieList <- newTVarIO []
     urlPatterns <- S.newIO
+    domainPatterns <- S.newIO
     urlsInProgress <- S.newIO
     urlsCompleted <- S.newIO
     urlsFailed <- M.newIO
     crawlerSettings <- createCrawlerSettings
-    return $ Crawler crawlerStatus urlQueue storeQueue numStored loggingQueue manager cookieList urlPatterns urlsInProgress urlsCompleted urlsFailed crawlerSettings
+    return $ Crawler crawlerStatus urlQueue storeQueue numStored loggingQueue manager cookieList urlPatterns domainPatterns urlsInProgress urlsCompleted urlsFailed crawlerSettings
 
 createCrawlerSettings :: IO CrawlerSettings
 createCrawlerSettings = do
@@ -210,8 +212,17 @@ checkNotDone crawler url = do
         _          -> return $ Right ()
 
 checkAgainstIncludePatterns :: Crawler bq -> CanonicalUrl -> STM Bool
-checkAgainstIncludePatterns crawlerState (CanonicalUrl url) =
-    any (`isInfixOf` url) <$> setAsList (getUrlPatterns crawlerState)
+checkAgainstIncludePatterns crawlerState cu@(CanonicalUrl url) =
+    (||) <$> checkAgainstUrlIncludePatterns <*> checkAgainstDomainIncludePatterns
+
     where
+    checkAgainstUrlIncludePatterns =
+        any (`isInfixOf` url) <$> setAsList (getUrlIncludePatterns crawlerState)
+
+    checkAgainstDomainIncludePatterns =
+        case getDomain cu of
+            Nothing         -> pure False
+            Just (Domain d) ->  any (`isInfixOf` d) <$> setAsList (getDomainIncludePatterns crawlerState)
+
     setAsList :: S.Set a -> STM [a]
     setAsList = L.toList . S.listT

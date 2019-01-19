@@ -74,18 +74,24 @@ initialiseSettings crawler args logFunc = do
             Nothing -> return ()
             Just strIncludePatterns -> do
                 let includes = concatMap (splitOn ",") strIncludePatterns
-                insertIncludes (map C8.pack includes)
+                insertIncludes (getUrlIncludePatterns crawler) (map C8.pack includes)
 
         case M.lookup (OptionFlag "-if") optionMap of
             Nothing -> return ()
             Just includeFiles -> do
                 files <- mapM C8.readFile includeFiles
-                insertIncludes . map trim . filter (not . C8.null) . concatMap C8.lines $ files
+                insertIncludes (getUrlIncludePatterns crawler) . map trim . filter (not . C8.null) . concatMap C8.lines $ files
+
+        case M.lookup (OptionFlag "-d") optionMap of
+            Nothing -> return ()
+            Just strDomainIncludePatterns -> do
+                let domainIncludes = concatMap (splitOn ",") strDomainIncludePatterns
+                insertIncludes (getDomainIncludePatterns crawler) (map C8.pack domainIncludes)
 
         where
-        insertIncludes =
+        insertIncludes patterns =
             mapM_ (\i -> do
-                atomically . S.insert i . getUrlPatterns $ crawler
+                atomically $ S.insert i patterns
                 logFunc . GeneralMessage $ C8.concat ["Added pattern: ", i])
 
     initialiseStartUrls :: OptionMap -> IO ()
