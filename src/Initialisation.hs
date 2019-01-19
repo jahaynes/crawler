@@ -61,7 +61,7 @@ initialiseSettings crawler args logFunc = do
         case M.lookup (OptionFlag "-wf") optionMap of
             Nothing -> return ()
             Just [warcFile] -> do
-                atomically $ writeTVar (getCrawlOutput crawlerSettings) (Just (WarcFile warcFile))
+                atomically $ writeTVar (getCrawlOutputType crawlerSettings) (Just (WarcFile warcFile))
                 logFunc . GeneralMessage . C8.pack . concat $ ["Writing output to: ", warcFile, "\n"]
 
     initialiseCrawlLimit crawlerSettings (OptionMap optionMap) =

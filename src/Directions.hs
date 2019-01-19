@@ -1,17 +1,18 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Directions where
-import Control.Concurrent.STM
-import Data.Attoparsec.ByteString.Lazy          (Parser, parse, string, Result(..))
-import Data.Attoparsec.ByteString.Char8         (takeTill, char, skipSpace)
-import Data.ByteString                          (ByteString)
-import Data.Maybe                               (mapMaybe)
-import qualified Data.ByteString.Lazy.Char8  as L8
-import Safe (headMay)
-import Text.Regex.Posix          ((=~))
 
 import Urls
 import Types
+
+import           Control.Concurrent.STM
+import           Data.Attoparsec.ByteString.Lazy   (Parser, parse, string, Result(..))
+import           Data.Attoparsec.ByteString.Char8  (takeTill, char, skipSpace)
+import           Data.ByteString                   (ByteString)
+import           Data.Maybe                        (mapMaybe)
+import qualified Data.ByteString.Lazy.Char8  as L8
+import           Safe                              (headMay)
+import           Text.Regex.Posix                  ((=~))
 
 emptyHrefDirections :: [HrefDirection]
 emptyHrefDirections = []

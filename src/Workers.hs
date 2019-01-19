@@ -1,10 +1,10 @@
-module Workers where
+module Workers (initialiseWorkers) where
 
 import Crawl
 import Errors
-import Output
+import Output as O
 import Settings
-import Types
+import Types as T
 
 import CountedQueue (CountedQueue)
 
@@ -17,22 +17,19 @@ import qualified StmContainers.Map  as M
 initialiseWorkers :: CountedQueue bq => Crawler bq -> LogFunction -> IO ()
 initialiseWorkers crawler logFunc = do
 
-    crawlerThreads <- S.newIO
+    crawlerThreads       <- S.newIO
     crawlerThreadsToStop <- S.newIO 
+    activeThreads        <- M.newIO
+    threadClocks         <- M.newIO
 
-    activeThreads <- M.newIO
-
-    threadClocks <- M.newIO
-
-    let workers = Workers { getCrawlerThreads = crawlerThreads,
+    let workers = Workers { getCrawlerThreads       = crawlerThreads,
                             getCrawlerThreadsToStop = crawlerThreadsToStop,
-
-                            getActiveThreads = activeThreads,
-                            getThreadClocks = threadClocks}
+                            getActiveThreads        = activeThreads,
+                            getThreadClocks         = threadClocks}
 
     setNumCrawlers crawler workers logFunc numStartCrawlers
 
-    forkWorker workers "Storage" $ storePages crawler
+    forkWorker workers "Storage" $ storePages (makePageStore crawler)
 
     forkWorker workers "Logging" $ logErrors crawler logFunc
 
@@ -46,3 +43,10 @@ forkWorker workers threadName a = do
     where
     subscribe :: ThreadId -> STM ()
     subscribe threadId = M.insert threadName threadId (getActiveThreads workers)
+
+makePageStore :: Crawler bq -> PageStore bq
+makePageStore crawler =
+    PageStore { O.getCrawlerStatus = T.getCrawlerStatus crawler 
+              , O.getOutputType    = T.getCrawlOutputType . getCrawlerSettings $ crawler
+              , O.getStoreQueue    = T.getStoreQueue crawler
+              }
