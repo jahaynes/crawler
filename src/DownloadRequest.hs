@@ -13,6 +13,7 @@ class DownloadRequest r where
     applyParametersFrom :: r -> (Request -> Request)
 
 newtype GetRequest = GetRequest CanonicalUrl
+                         deriving Show
 
 instance DownloadRequest GetRequest where
 
@@ -21,6 +22,7 @@ instance DownloadRequest GetRequest where
     applyParametersFrom _ = id
 
 data FormRequest = FormRequest Label Method CanonicalUrl FormParameters
+                       deriving Show
 
 instance DownloadRequest FormRequest where
 
