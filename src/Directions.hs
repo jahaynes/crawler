@@ -49,17 +49,18 @@ parseHrefDirections f
                       (Done remainder x) -> x : parseHrefDirections remainder
                       _ -> error "Failed href directions parsing"
 
-hrefDirection :: Parser HrefDirection
-hrefDirection = skipSpace *> do
-    l <- Label <$> parseHrefLine "HrefDirection"
-    ur <- UrlRegex <$> parseHrefLine "UrlRegex"
-    hr <- HrefRegex <$> parseHrefLine "HrefRegex"
-    skipSpace
-    return (HrefDirection l ur hr)
-
     where
-    parseHrefLine :: ByteString -> Parser ByteString
-    parseHrefLine particular = do
-        skipSpace <* string particular <* takeTill (=='=')
-        _ <- char '='
-        skipSpace *> takeTill (\x -> x == '\r' || x == '\n')
+    hrefDirection :: Parser HrefDirection
+    hrefDirection = skipSpace *> do
+        l <- Label <$> parseHrefLine "HrefDirection"
+        ur <- UrlRegex <$> parseHrefLine "UrlRegex"
+        hr <- HrefRegex <$> parseHrefLine "HrefRegex"
+        skipSpace
+        return (HrefDirection l ur hr)
+
+        where
+        parseHrefLine :: ByteString -> Parser ByteString
+        parseHrefLine particular = do
+            skipSpace <* string particular <* takeTill (=='=')
+            _ <- char '='
+            skipSpace *> takeTill (\x -> x == '\r' || x == '\n')

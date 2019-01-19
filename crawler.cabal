@@ -54,6 +54,7 @@ executable crawler
                        Fetch,
                        Forms,
                        FormTypes,
+                       HttpUtil,
                        Initialisation,
                        Output,
                        Parse,

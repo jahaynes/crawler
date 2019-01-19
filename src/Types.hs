@@ -86,8 +86,6 @@ newtype Label = Label ByteString deriving (Show, Eq, Ord)
 type FormKey = ByteString
 type FormValue = ByteString
 
-data DownloadResult = DownloadResult !ByteString ![Cookie] ![CanonicalUrl]
-
 newtype UrlRegex = UrlRegex ByteString deriving Show
 newtype FormActionRegex = FormActionRegex ByteString deriving Show
 newtype FormParameters = FormParameters [(FormKey, FormValue)] deriving Show
