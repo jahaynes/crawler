@@ -16,7 +16,7 @@ import Shared
 import Types
 import Urls                                       (canonicaliseString)                 
 
-import           Control.Concurrent.STM           (atomically, readTVarIO)
+import           Control.Concurrent.STM           (atomically, readTVarIO, writeTVar)
 import           Control.Monad.IO.Class           (liftIO)
 import qualified Data.ByteString.Char8      as C8
 import qualified Data.ByteString.Lazy.Char8 as L8
@@ -30,6 +30,7 @@ type CrawlerApi = "status"                                      :> Get '[JSON] C
              :<|> "queueSize"         :> Capture "x" QueueName  :> Get '[JSON] Int
              :<|> "addUrl"            :> ReqBody '[JSON] String :> Post '[JSON] ()
              :<|> "addIncludePattern" :> ReqBody '[JSON] String :> Post '[JSON] ()
+             :<|> "stop"                                        :> Post '[JSON] ()
 
 crawlerApi :: Proxy CrawlerApi
 crawlerApi = Proxy
@@ -43,6 +44,7 @@ crawlerServer crawler workers = status
                            :<|> queueSize
                            :<|> addUrl
                            :<|> addIncludePattern
+                           :<|> stop
 
     where
     status :: Handler CrawlerStatus
@@ -73,6 +75,9 @@ crawlerServer crawler workers = status
 
     addIncludePattern :: String -> Handler ()
     addIncludePattern pat = liftIO . atomically $ S.insert (C8.pack pat) (getUrlPatterns crawler)
+
+    stop :: Handler ()
+    stop = liftIO . atomically $ writeTVar (getCrawlerStatus crawler) HaltingStatus
 
 start :: CountedQueue bq => Crawler bq -> Workers -> IO ()
 start crawler workers = run 8081 (crawlerApp crawler workers)
