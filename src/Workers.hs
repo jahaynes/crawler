@@ -1,7 +1,7 @@
 module Workers (initialiseWorkers) where
 
 import Crawl
-import Errors
+import Errors as E
 import Output as O
 import Settings
 import Types as T
@@ -14,7 +14,7 @@ import qualified Service
 import qualified StmContainers.Set  as S
 import qualified StmContainers.Map  as M
 
-initialiseWorkers :: CountedQueue bq => Crawler bq -> LogFunction -> IO ()
+initialiseWorkers :: CountedQueue bq => Crawler bq -> (Loggable -> IO ()) -> IO ()
 initialiseWorkers crawler logFunc = do
 
     crawlerThreads       <- S.newIO
@@ -27,11 +27,11 @@ initialiseWorkers crawler logFunc = do
                             getActiveThreads        = activeThreads,
                             getThreadClocks         = threadClocks}
 
-    setNumCrawlers crawler workers logFunc numStartCrawlers
+    setNumCrawlers crawler workers numStartCrawlers
 
     forkWorker workers "Storage" $ storePages (makePageStore crawler)
 
-    forkWorker workers "Logging" $ logErrors crawler logFunc
+    forkWorker workers "Logging" $ logErrors (makeErrorLogger crawler logFunc)
 
     forkWorker workers "Service" $ Service.start crawler workers
 
@@ -50,3 +50,9 @@ makePageStore crawler =
               , O.getOutputType    = T.getCrawlOutputType . getCrawlerSettings $ crawler
               , O.getStoreQueue    = T.getStoreQueue crawler
               }
+
+makeErrorLogger :: Crawler bq -> (Loggable -> IO ()) -> ErrorLogger bq
+makeErrorLogger crawler logFunc =
+    ErrorLogger { E.getLogQueue    = T.getLogQueue crawler
+                , E.getLogFunction = logFunc
+                }

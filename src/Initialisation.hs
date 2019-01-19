@@ -5,7 +5,6 @@ module Initialisation where
 import           CountedQueue           (CountedQueue, writeQueue)
 import           Crawl
 import           Directions
-import           Errors                 (LogFunction)
 import           Shared
 import           Types
 import           Urls
@@ -36,7 +35,7 @@ optionMapFromArgs =   OptionMap
     where
     isFlag x = length x > 1 && head x == '-'
 
-initialiseSettings :: CountedQueue bq => Crawler bq -> [String] -> LogFunction -> IO ()
+initialiseSettings :: CountedQueue bq => Crawler bq -> [String] -> (Loggable -> IO ()) -> IO ()
 initialiseSettings crawler args logFunc = do
 
     let optionMap = optionMapFromArgs args

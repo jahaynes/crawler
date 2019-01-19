@@ -5,10 +5,9 @@ module Main where
 import Communication
 import CountedQueue as CC
 import Crawl
-import Errors
 import Initialisation
 import PoliteQueue as PQ
-import Types
+import Types as T
 import Workers
 
 import Control.Concurrent       (threadDelay)
@@ -19,7 +18,7 @@ import System.IO                (hPrint, stderr)
 import System.Remote.Monitoring (forkServer)
 
 
-defaultLogging :: LogFunction
+defaultLogging :: Loggable -> IO ()
 defaultLogging = hPrint stderr
 
 main :: IO ()
@@ -61,7 +60,7 @@ main = do
           when (status == RunningStatus) $ do
             noWork <- (\a b c -> a && b && c) <$> ((==0) <$> (PQ.size . getUrlQueue $ crawler))
                                               <*> (isEmpty . getStoreQueue $ crawler)
-                                              <*> (isEmpty . getLogQueue $ crawler)
+                                              <*> (isEmpty . T.getLogQueue $ crawler)
 
             numStored <- readTVar . getNumStored $ crawler
             mCrawlLimit <- readTVar . getCrawlLimit . getCrawlerSettings $ crawler
