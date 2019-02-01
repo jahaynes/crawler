@@ -15,8 +15,6 @@ import Control.Concurrent.STM   (STM, atomically, readTVar, readTVarIO, writeTVa
 import Control.Monad            (unless, when)
 import System.Environment       (getArgs)
 import System.IO                (hPrint, stderr)
-import System.Remote.Monitoring (forkServer)
-
 
 defaultLogging :: Loggable -> IO ()
 defaultLogging = hPrint stderr
@@ -25,8 +23,6 @@ main :: IO ()
 main = do
 
     args <- getArgs
-
-    _ <- forkServer "localhost" 8000
 
     defaultLogging $ GeneralMessage "Preparing crawler"
     crawler <- createCrawler
