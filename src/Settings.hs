@@ -17,6 +17,9 @@ ignoreBadHttpsCerts = True
 maxRedirects :: Int
 maxRedirects = 20
 
+maxUrlLength :: Int
+maxUrlLength = 200
+
 maxContentLength :: Int
 maxContentLength = 2 * 1024 * 1024
 

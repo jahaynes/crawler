@@ -21,7 +21,7 @@ import Control.Concurrent               (ThreadId, myThreadId)
 import Control.Concurrent.STM           (STM, atomically, writeTVar, readTVar, readTVarIO, modifyTVar', newTVarIO)
 import Control.Monad                    (replicateM_, when)
 import Control.Monad.Trans.Resource     (runResourceT)
-import Data.ByteString.Char8      as C8 (ByteString, isInfixOf)
+import Data.ByteString.Char8      as C8 (ByteString, isInfixOf, length)
 import Data.List                        ((\\))
 import Data.Maybe                       (isJust)
 import Data.Time
@@ -187,9 +187,12 @@ crawlUrls workers crawlerState threadId =
 processNextUrl :: Crawler bq -> CanonicalUrl -> IO (Either ByteString ())
 processNextUrl crawler url = do
     isAcceptable <- atomically $ checkAgainstIncludePatterns crawler url
-    if isAcceptable
+    if isAcceptable && checkLength url
         then atomically $ insertIfNotDone crawler url
         else return . Left $ "URL wasn't acceptable"
+
+checkLength :: CanonicalUrl -> Bool
+checkLength (CanonicalUrl u) = C8.length u < maxUrlLength
 
 insertIfNotDone :: Crawler bq -> CanonicalUrl -> STM (Either ByteString ())
 insertIfNotDone crawler url = do
