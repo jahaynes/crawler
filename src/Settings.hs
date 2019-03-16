@@ -18,7 +18,7 @@ maxRedirects :: Int
 maxRedirects = 20
 
 maxContentLength :: Int
-maxContentLength = 2 * 1024 * 1024
+maxContentLength = 20 * 1024 * 1024
 
 --Ignore after #
 discardFragments :: Bool
