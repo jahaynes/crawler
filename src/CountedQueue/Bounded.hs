@@ -3,13 +3,12 @@ module CountedQueue.Bounded where
 import CountedQueue (CountedQueue (..))
 
 import Control.Concurrent.STM
-import GHC.Natural            (Natural)
 
 data BoundedCountedQueue a = BoundedCountedQueue (TVar Int) (TBQueue a) 
 
-newQueueIO :: Natural -> IO (BoundedCountedQueue a)
-newQueueIO nat = BoundedCountedQueue <$> newTVarIO 0
-                                     <*> newTBQueueIO nat
+newQueueIO :: Int -> IO (BoundedCountedQueue a)
+newQueueIO i = BoundedCountedQueue <$> newTVarIO 0
+                                   <*> newTBQueueIO i
 
 instance CountedQueue BoundedCountedQueue where
 
