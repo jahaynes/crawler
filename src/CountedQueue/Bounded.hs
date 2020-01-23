@@ -6,9 +6,9 @@ import Control.Concurrent.STM
 
 data BoundedCountedQueue a = BoundedCountedQueue (TVar Int) (TBQueue a) 
 
-newQueueIO :: Int -> IO (BoundedCountedQueue a)
+newQueueIO :: Integral i => i -> IO (BoundedCountedQueue a)
 newQueueIO i = BoundedCountedQueue <$> newTVarIO 0
-                                   <*> newTBQueueIO i
+                                   <*> newTBQueueIO (fromIntegral i)
 
 instance CountedQueue BoundedCountedQueue where
 
